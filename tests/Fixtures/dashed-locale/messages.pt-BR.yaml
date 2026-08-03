@@ -1,0 +1,3 @@
+# Written the way a translation tool names it: the bundle reads it as "pt_BR".
+app:
+    dashboard: "Painel"

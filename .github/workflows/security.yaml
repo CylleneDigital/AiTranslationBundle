@@ -1,0 +1,40 @@
+name: Security
+
+on:
+    push:
+        branches:
+            - main
+    pull_request: ~
+    schedule:
+        -
+            cron: "0 7 * * 1" # Every Monday at 7am
+    workflow_dispatch: ~
+
+jobs:
+    audit:
+        runs-on: ubuntu-latest
+
+        name: "Composer audit"
+
+        steps:
+            -
+                uses: actions/checkout@v7
+
+            -
+                name: Setup PHP
+                uses: shivammathur/setup-php@v2
+                with:
+                    php-version: "8.4"
+                    coverage: none
+
+            -
+                name: Install dependencies
+                run: composer update --no-interaction --no-progress --prefer-dist
+
+            # A known vulnerability deserves to be seen on Monday morning, not at release
+            # time. `--abandoned=report` shows abandoned packages without failing the job:
+            # since Composer 2.7 an abandoned dev dependency is enough to exit non-zero,
+            # which would leave the job permanently red and therefore unread.
+            -
+                name: Audit dependencies
+                run: composer audit --ansi --abandoned=report

@@ -1,0 +1,34 @@
+name: Suggest an improvement
+description: A feature or an enhancement
+labels: ["enhancement"]
+body:
+    - type: textarea
+      id: problem
+      attributes:
+          label: The need
+          description: "What concrete problem are you running into? Describe the situation, not the solution."
+      validations:
+          required: true
+    - type: textarea
+      id: proposal
+      attributes:
+          label: What you suggest
+    - type: dropdown
+      id: scope
+      attributes:
+          label: This concerns
+          options:
+              - The translation engine (catalogues, overrides, coverage)
+              - A provider bridge (default, openai, anthropic, deepl) or a new one
+              - The suggestion and review workflow
+              - The interactive console or a CLI command
+              - The documentation
+              - Something else
+      validations:
+          required: true
+    - type: markdown
+      attributes:
+          value: |
+              This bundle ships **no user interface** on purpose: anything that renders a screen
+              belongs to an integration package, not here. A request for a back office is better
+              opened against the integration you use.

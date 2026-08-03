@@ -1,0 +1,20 @@
+# Keep the distributed package to what an application actually needs: composer
+# archives (and Packagist dist zips) drop everything marked export-ignore.
+/.editorconfig      export-ignore
+/.gitattributes     export-ignore
+/.github/           export-ignore
+/.gitignore         export-ignore
+/.php-cs-fixer.dist.php export-ignore
+/AGENTS.md          export-ignore
+/CLAUDE.md          export-ignore
+/CONTRIBUTING.md    export-ignore
+/compose.yaml       export-ignore
+/docs/              export-ignore
+/phpstan.neon       export-ignore
+/phpunit.xml.dist   export-ignore
+/tests/             export-ignore
+
+# Normalise line endings so a checkout on Windows does not rewrite fixtures.
+* text=auto eol=lf
+*.png binary
+*.svg text

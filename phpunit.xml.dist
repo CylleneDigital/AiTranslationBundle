@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<phpunit xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:noNamespaceSchemaLocation="vendor/phpunit/phpunit/phpunit.xsd"
+         bootstrap="vendor/autoload.php"
+         colors="true"
+         cacheDirectory="var/cache/phpunit"
+         failOnWarning="true"
+         failOnRisky="true"
+         failOnNotice="true"
+         failOnDeprecation="true"
+         beStrictAboutOutputDuringTests="true"
+>
+    <testsuites>
+        <testsuite name="Unit">
+            <directory>tests/Unit</directory>
+        </testsuite>
+        <testsuite name="Functional">
+            <directory>tests/Functional</directory>
+        </testsuite>
+    </testsuites>
+
+    <php>
+        <ini name="error_reporting" value="-1"/>
+        <env name="APP_ENV" value="test"/>
+        <!-- Without it, the kernel's default logger writes every Doctrine query to stderr. -->
+        <server name="SHELL_VERBOSITY" value="-1"/>
+        <env name="KERNEL_CLASS" value="CylleneDigital\AiTranslationBundle\Tests\App\TestKernel"/>
+        <!-- SQLite by default so a clone runs the whole suite with no service to start.
+             The CI matrix overrides DATABASE_URL to exercise MariaDB, MySQL and PostgreSQL,
+             which is where the platform-specific mapping (unique index on a nullable
+             column, utf8mb4 key length) is actually proven. -->
+        <env name="DATABASE_URL" value="pdo-sqlite:///%kernel.project_dir%/var/test.db"/>
+    </php>
+
+    <!-- Only what the bundle's own code triggers fails the suite: a deprecation inside a
+         dependency (the lowest-dependencies job meets some) is the dependency's business. -->
+    <source restrictNotices="true" restrictWarnings="true" ignoreIndirectDeprecations="true">
+        <include>
+            <directory>src</directory>
+        </include>
+    </source>
+</phpunit>

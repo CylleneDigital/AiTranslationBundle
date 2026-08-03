@@ -1,0 +1,47 @@
+# Databases for running the test suite against a real engine. Not needed for a plain
+# `vendor/bin/phpunit`, which uses SQLite — see CONTRIBUTING.md. Each port can be moved
+# when the default one is already taken: MYSQL_PORT=3317 docker compose up -d mysql
+services:
+    mariadb:
+        image: mariadb:11.8
+        environment:
+            MARIADB_ROOT_PASSWORD: root
+            MARIADB_DATABASE: ai_translation_test
+            MARIADB_USER: app
+            MARIADB_PASSWORD: app
+        ports:
+            - "${MARIADB_PORT:-3306}:3306"
+        healthcheck:
+            test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+            interval: 5s
+            timeout: 5s
+            retries: 20
+
+    mysql:
+        image: mysql:8.4
+        environment:
+            MYSQL_ROOT_PASSWORD: root
+            MYSQL_DATABASE: ai_translation_test
+            MYSQL_USER: app
+            MYSQL_PASSWORD: app
+        ports:
+            - "${MYSQL_PORT:-3307}:3306"
+        healthcheck:
+            test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-uroot", "-proot"]
+            interval: 5s
+            timeout: 5s
+            retries: 20
+
+    postgres:
+        image: postgres:17-alpine
+        environment:
+            POSTGRES_DB: ai_translation_test
+            POSTGRES_USER: app
+            POSTGRES_PASSWORD: app
+        ports:
+            - "${POSTGRES_PORT:-5432}:5432"
+        healthcheck:
+            test: ["CMD", "pg_isready", "-U", "app", "-d", "ai_translation_test"]
+            interval: 5s
+            timeout: 5s
+            retries: 20

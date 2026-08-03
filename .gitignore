@@ -1,0 +1,11 @@
+/vendor/
+/composer.lock
+/var/
+
+# Local overrides of the .dist configurations
+/phpunit.xml
+/.php-cs-fixer.php
+/config/reference.php
+
+.idea/
+.claude/

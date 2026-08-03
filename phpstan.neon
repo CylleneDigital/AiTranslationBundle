@@ -1,0 +1,11 @@
+parameters:
+    level: max
+    paths:
+        - src
+        - tests
+    # The composer.json range: a PHP 8.4-only function (array_find…) running fine on the
+    # analysing machine would otherwise go unnoticed until a PHP 8.3 host loads it.
+    phpVersion:
+        min: 80300
+        max: 80599
+    treatPhpDocTypesAsCertain: false
