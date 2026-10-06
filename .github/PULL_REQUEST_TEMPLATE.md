@@ -6,16 +6,16 @@
 
 - [ ] Tests pass (`vendor/bin/phpunit`)
 - [ ] PHPStan and PHP-CS-Fixer are green (`vendor/bin/phpstan analyse`, `vendor/bin/php-cs-fixer check`)
-- [ ] `UPGRADE.md` is up to date if the public contract changes — the configuration tree, the
-      container services, the entities, the events, or the interfaces under `Provider/`,
-      `Catalogue/`, `Override/` and `Scope/`
+- [ ] `UPGRADE.md` is up to date if the public contract changes: the configuration tree, the
+      container services, the entities, the events, the exceptions, or the interfaces under
+      `Provider/`, `Catalogue/`, `Override/`, `Scope/`, `Suggestion/` and `Exception/`
 - [ ] No real API key appears in the code, the tests or this description
 
 ## If the pull request touches the entity mapping
 
 Say so explicitly: the bundle ships mapping, not migrations, so every host has to generate one.
 A column length, an index or a unique constraint that changes needs a line in `UPGRADE.md` and a
-run against MySQL, MariaDB and PostgreSQL — SQLite proves none of it.
+run against MySQL, MariaDB and PostgreSQL: SQLite proves none of it.
 
 ## If the pull request touches a provider bridge
 
