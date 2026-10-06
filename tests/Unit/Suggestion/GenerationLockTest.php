@@ -61,13 +61,11 @@ final class GenerationLockTest extends TestCase
         $lock = new GenerationLock(new LockFactory($store), 60, $this->logger($logs));
 
         $batches = 0;
-        $lock->run('messages', 'en_US', '', static function (callable $keepAlive) use (&$batches): int {
+        $lock->run('messages', 'en_US', '', static function (callable $keepAlive) use (&$batches): void {
             foreach ([1, 2] as $ignored) {
                 ++$batches;
                 $keepAlive();
             }
-
-            return $batches;
         });
 
         self::assertSame(2, $batches);
