@@ -13,6 +13,18 @@
         "anthropic"
     ],
     "license": "MIT",
+    "homepage": "https://github.com/CylleneDigital/AiTranslationBundle",
+    "authors": [
+        {
+            "name": "Cyllene",
+            "homepage": "https://github.com/CylleneDigital"
+        }
+    ],
+    "support": {
+        "issues": "https://github.com/CylleneDigital/AiTranslationBundle/issues",
+        "source": "https://github.com/CylleneDigital/AiTranslationBundle",
+        "security": "https://github.com/CylleneDigital/AiTranslationBundle/security/policy"
+    },
     "require": {
         "php": "^8.3",
         "ext-dom": "*",
