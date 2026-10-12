@@ -6,9 +6,8 @@
 
 - [ ] Tests pass (`vendor/bin/phpunit`)
 - [ ] PHPStan and PHP-CS-Fixer are green (`vendor/bin/phpstan analyse`, `vendor/bin/php-cs-fixer check`)
-- [ ] `UPGRADE.md` is up to date if the public contract changes: the configuration tree, the
-      container services, the entities, the events, the exceptions, or the interfaces under
-      `Provider/`, `Catalogue/`, `Override/`, `Scope/`, `Suggestion/` and `Exception/`
+- [ ] `UPGRADE.md` is up to date if the public contract changes: everything
+      `docs/public-contract.md` lists, method signatures included
 - [ ] No real API key appears in the code, the tests or this description
 
 ## If the pull request touches the entity mapping

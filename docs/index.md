@@ -38,6 +38,9 @@ error behaviour:
 
 ## Reference
 
+- **[Public contract](public-contract.md)**: what semantic versioning covers (the
+  configuration, the entities, the interfaces, the value objects and the services an
+  integration may inject, method by method) and what stays internal.
 - **[Configuration reference](configuration-reference.md)**: every
   `cyllene_digital_ai_translation` key, its type, its default and its meaning.
 - **Operations** (`operations/`), one file per topic:

@@ -79,11 +79,13 @@ run. That is GitHub's default on public repositories, not something you did wron
   `ignoreErrors` entry must explain why in its description: the type is usually the thing to
   fix.
 - **Tests are mandatory** for any bug fix: the test must fail before the fix.
-- **`UPGRADE.md`** is updated when the public contract breaks: the configuration tree, the
-  container services, the entities, the events, the exceptions, the interfaces under
-  `Provider/`, `Catalogue/`, `Override/`, `Scope/`, `Suggestion/` and `Exception/`. It only
-  breaks in a major version. A change to the entity mapping (a column, an index, a
-  constraint) is one too: every host has to generate a migration for it.
+- **`UPGRADE.md`** is updated when the [public contract](docs/public-contract.md) breaks. That
+  page is the list: the configuration tree, the entities and their mapping, the interfaces,
+  the events, the exceptions, the value objects, and the services an integration may inject,
+  method by method. It only breaks in a major version. A method signature is part of it, not
+  only the service that carries it; a service constructor is not. Whatever the page does not
+  name is internal: adding it to one of the page's tables is what makes it stable, and
+  `tests/Unit/Docs/PublicContractDocsTest.php` then checks it against the code.
 - **Money is a correctness concern.** Generation calls a paid API. Anything that can make a run
   happen twice, or happen without the caller knowing, is a bug, not an optimisation.
 - **A provider bridge change states its source**: a page of the provider's API documentation,
