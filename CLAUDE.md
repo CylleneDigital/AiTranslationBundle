@@ -86,6 +86,10 @@ This file only holds what reading the code will not tell you.
 - **The Flex recipe lives in `symfony/recipes-contrib`**
   (`cyllene-digital/ai-translation-bundle/<version>/`), not here: a change to the configuration
   tree, the bundle class or the install steps has to be mirrored there.
+- **The public contract is one page**, `docs/public-contract.md`: a listed method is its whole
+  signature, a service constructor is not covered, and whatever the page does not name is
+  internal. Renaming, removing or re-typing a listed symbol is a major version; the page's
+  tables are checked against the code by `tests/Unit/Docs/PublicContractDocsTest.php`.
 - **The entity mapping is public surface**: a column, an index or a constraint change forces every
   host to generate a migration - major version only, with an `UPGRADE.md` entry.
 
