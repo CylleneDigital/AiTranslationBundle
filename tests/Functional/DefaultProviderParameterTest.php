@@ -7,13 +7,13 @@ namespace CylleneDigital\AiTranslationBundle\Tests\Functional;
 use CylleneDigital\AiTranslationBundle\Tests\App\FullConfigTestKernel;
 use CylleneDigital\AiTranslationBundle\Tests\App\TestKernel;
 use PHPUnit\Framework\Attributes\DataProvider;
-use PHPUnit\Framework\TestCase;
+use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 
 /**
  * `cyllene_digital_ai_translation.default_provider` is public contract: it survives the
  * compilation of a host's container, for an integration to read.
  */
-final class DefaultProviderParameterTest extends TestCase
+final class DefaultProviderParameterTest extends KernelTestCase
 {
     /**
      * @param class-string<TestKernel> $kernel
@@ -21,14 +21,12 @@ final class DefaultProviderParameterTest extends TestCase
     #[DataProvider('kernels')]
     public function testTheCompiledContainerKeepsTheParameter(string $kernel, string $expected): void
     {
-        $host = new $kernel('test', false);
-        $host->boot();
+        // Read by createKernel(), reset by the parent's tearDown(): which also restores the
+        // error and exception handlers the kernel installs.
+        static::$class = $kernel;
+        self::bootKernel();
 
-        try {
-            self::assertSame($expected, $host->getContainer()->getParameter('cyllene_digital_ai_translation.default_provider'));
-        } finally {
-            $host->shutdown();
-        }
+        self::assertSame($expected, self::getContainer()->getParameter('cyllene_digital_ai_translation.default_provider'));
     }
 
     /**

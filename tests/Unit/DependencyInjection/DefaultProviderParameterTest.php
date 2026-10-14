@@ -8,6 +8,7 @@ use CylleneDigital\AiTranslationBundle\CylleneDigitalAiTranslationBundle;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 use Symfony\Component\DependencyInjection\ContainerBuilder;
+use Symfony\Component\DependencyInjection\ParameterBag\ParameterBag;
 
 /**
  * `cyllene_digital_ai_translation.default_provider` is public contract: an integration reads it
@@ -23,7 +24,8 @@ final class DefaultProviderParameterTest extends TestCase
     #[DataProvider('configurations')]
     public function testTheParameterNamesTheProviderARunUsesWhenNoneIsGiven(array $config, ?string $expected): void
     {
-        $builder = new ContainerBuilder();
+        // What a kernel always sets: Symfony 7.4's bundle extension reads the environment.
+        $builder = new ContainerBuilder(new ParameterBag(['kernel.environment' => 'test', 'kernel.build_dir' => sys_get_temp_dir()]));
         $extension = (new CylleneDigitalAiTranslationBundle())->getContainerExtension() ?? self::fail('The bundle has no extension.');
         $extension->load([$config], $builder);
 
