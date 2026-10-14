@@ -5,10 +5,10 @@ The console splits in two, on purpose:
 - **`cyllene:ai-translation`**, the **interactive console**: one entry point, a menu of
   guided tasks, no option to memorise. Everything a human does at a terminal goes
   through it.
-- **Five option-driven commands** for the machines (CI, cron, scripts):
+- **Six option-driven commands** for the machines (CI, cron, scripts):
   [`coverage`](#coverage), [`generate`](#generate), [`export-overrides`](#export-overrides),
-  [`import-overrides`](#import-overrides) and
-  [`cleanup-suggestions`](#cleanup-suggestions). The `--scope` option of `coverage`,
+  [`import-overrides`](#import-overrides), [`cleanup-suggestions`](#cleanup-suggestions) and
+  [`purge-scopes`](#purge-scopes). The `--scope` option of `coverage`,
   `generate` and `export-overrides` is validated: when the host declares scopes, an unknown code is
   **refused** with the declared list; an unnoticed typo would otherwise render the
   global figures dressed as the scope's.
@@ -378,3 +378,18 @@ missing namespace) exits 1 too; an unintelligible file fails the command.
 CSV files may come straight from a spreadsheet: a UTF-8 BOM and `;` separators (a
 French-locale Excel) are accepted, and the export writes a BOM so Excel reads the accents
 right. A file in another encoding is refused with a "save it as CSV UTF-8" message.
+
+## `purge-scopes`: the scopes the host no longer declares <a id="purge-scopes"></a>
+
+```bash
+bin/console cyllene:ai-translation:purge-scopes [--force]
+```
+
+Lists the scopes the bundle stores something for (overrides, suggestions, parameters) that the
+host no longer declares, with what each holds: what a deleted channel or site left behind,
+when nothing purged it at its deletion ([Scopes](../concepts/scopes.md#when-a-scope-disappears)).
+**Read-only by default.** `--force` purges them through `ScopePurger`: overrides (one
+`OverrideRemovedEvent` each), suggestions and parameters; the generation journal stays. The
+global scope and the declared scopes are never touched. A host that declares no scopes accepts
+every code: nothing can be told apart as deleted, and the command does nothing, even with
+`--force`.
