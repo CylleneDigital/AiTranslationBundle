@@ -403,10 +403,6 @@ final class TranslationAiServiceTest extends TestCase
         self::assertSame('T-V24', $this->stagedRowsByKey()['k24']->getSuggestedValue());
     }
 
-    /**
-     * A key the reply left out was billed all the same: it must surface as an errored row
-     * and the run as a failure — not as a "success" whose gap the next run re-bills.
-     */
     /** An override written for a key while the first batch is with the provider: the second batch leaves it out. */
     public function testAKeyGivenAValueDuringTheRunIsNotSentInALaterBatch(): void
     {
@@ -457,6 +453,10 @@ final class TranslationAiServiceTest extends TestCase
         self::assertArrayHasKey('k21', $this->providerCalls[1]);
     }
 
+    /**
+     * A key the reply left out was billed all the same: it must surface as an errored row
+     * and the run as a failure — not as a "success" whose gap the next run re-bills.
+     */
     public function testAKeyLeftOutOfTheReplyBecomesAnErroredRow(): void
     {
         $service = $this->createService(

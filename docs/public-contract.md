@@ -161,16 +161,21 @@ and only change in a major version:
   reserved after `GenerateSuggestionsMessage::$dispatchedAt`: the ones its own run reserved
   before it was interrupted.
 - **In `onlyMissing` mode**, a key given a value since the run started is left out of the
-  batches that follow, neither reserved nor sent.
+  batches that follow, neither reserved nor sent. The check runs before each batch: a value
+  written while the key's own batch is with the provider comes too late to save that call,
+  and the reply for that key is then discarded: the value written closes its suggestion (last
+  point).
 - **A failed run is never retried by Messenger**: the handler marks every failure
-  unrecoverable, whatever the transport, and the bundle's transport retries nothing. An
-  HTTP request is only retried on a response saying the provider did not process it.
+  unrecoverable, whatever the transport, and the bundle's transport retries nothing. The
+  bundle's bridges retry an HTTP request only on a response saying the provider did not
+  process it; a custom provider uses its own client, which the bundle promises nothing about.
 - **A suggestion reviewed while its batch is with the provider** keeps that decision: neither
   the reply nor a failure writes on it.
 
 Two concurrent runs a lock store does not guard can both call the provider. The database still
 holds one pending suggestion per key: the run that reserves a key the other holds fails before
-paying for that batch.
+paying for that batch, and has no journal entry, its entity manager being closed by then
+([Running on several servers](operations/multi-server.md)).
 
 ## What is not covered
 
