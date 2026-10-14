@@ -59,7 +59,7 @@ at compile time).
   `*.fr.*` files first, overlaid by the more specific `*.fr_FR.*` files. No **cross-language**
   fallback: a key only defined in English is correctly reported as **missing** in French,
   which is exactly what the AI suggestion flow detects. See the
-  [design note](../design/same-language-fallback.md).
+  [decision record](../adr/0003-missing-keys-within-one-language.md).
 - **`override`** is the entry's **own** row in the table (the one an edit changes and a
   removal deletes), including for a key that has disappeared from the file (`original` is
   then `null`: drift, see [coverage](coverage.md#drift-the-mirror-question); an *orphan*

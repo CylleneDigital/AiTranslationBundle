@@ -2,7 +2,7 @@
 
 A **suggestion** is a row in `cyllene_translation_suggestion`: a translation proposed by a
 provider, **awaiting a human decision**. It never affects the application until it is approved
-(see the [design note](../design/human-review.md)).
+(see the [decision record](../adr/0011-no-suggestion-applied-without-a-human.md)).
 
 ## Generation
 
@@ -304,7 +304,7 @@ listener that must only act on a committed rejection defers its own effect (on
 JSON response, clamped to 0..1), and the bridge's fixed default (0.9) for DeepL or an LLM
 response without a score. It is only meant to order and prioritise a review queue; it stays
 indicative: no automatic approval
-is wired to it (see the [design note](../design/human-review.md)).
+is wired to it (see the [decision record](../adr/0011-no-suggestion-applied-without-a-human.md)).
 
 Do not wire one in your integration either. The score is whatever the model writes, and the
 source strings are part of its prompt: a crafted source value (imported, or typed in a back

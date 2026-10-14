@@ -25,7 +25,7 @@ Behaviour notes:
   domain therefore no longer "leaks" into a `messages` lookup, and two overrides in distinct
   domains sharing the same key no longer clobber each other. The hot path remains an in-memory
   array lookup (`domain => key => value`). See the
-  [design note](../design/translator-decorator.md).
+  [decision record](../adr/0002-translator-decorated-at-priority-minus-10.md).
 - **Residual ambiguity (by design)**: several catalogue files can share the same domain
   (`shop/Product/messages` and `shop/messages` both feed `messages`, which Symfony merges into
   a single catalogue per locale). If two such catalogues override the **same key**, the
@@ -48,6 +48,13 @@ Behaviour notes:
   like its file value (Symfony's `IntlFormatter`, `%count%`-style parameters and ICU quotes
   included); any other key gets intl when it references a parameter by its bare name
   (`{count}`), plain replacement otherwise (`%name%`).
+- **`getCatalogue()` returns the file catalogue, without the overrides**: the decorator applies
+  them in `trans()`, not in the compiled `MessageCatalogue` it hands back. Anything reading the
+  catalogue directly sees the file values: `debug:translation`, the profiler's translation
+  panel, any code consuming `TranslatorBagInterface` (extraction tooling, completeness checks).
+  The effective values, as data, come from `TranslationManagerInterface`
+  (`getTranslationsForCatalogue()`, `getEffectiveOverridesByCatalogue()`), which is what the
+  coverage report and the exporters read.
 
 ## The two cache layers
 

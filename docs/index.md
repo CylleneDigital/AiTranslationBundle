@@ -54,15 +54,19 @@ error behaviour:
   - [Doctrine DBAL 3](operations/doctrine-dbal-3.md): the one setting a DBAL 3 host needs
     (`use_savepoints`), and why the bundle does not set it itself.
 
-## Design decisions
+## Decision records
 
-Why the engine is built the way it is, one page per decision:
+Why the engine is built the way it is, and what was left as it is on purpose, one file per
+decision: the **[index of the decision records](adr/README.md)**. Among them:
 
-- [The translator decorator](design/translator-decorator.md): why a decorator rather than a
-  custom loader or compiled-file edits.
-- [The same-language fallback](design/same-language-fallback.md): why `fr` files are merged
-  under `fr_FR`, and what "missing" means as a result.
-- [Compile-time bridges](design/compile-time-bridges.md): why providers become container
-  services at compile time.
-- [Mandatory human review](design/human-review.md): why nothing AI-generated is ever
-  applied without an explicit approval.
+- [The translator decorator](adr/0002-translator-decorated-at-priority-minus-10.md): why a
+  decorator rather than a custom loader or compiled-file edits.
+- [The same-language fallback](adr/0003-missing-keys-within-one-language.md): why `fr` files are
+  merged under `fr_FR`, and what "missing" means as a result.
+- [Compile-time bridges](adr/0004-providers-built-at-compile-time.md): why providers become
+  container services at compile time.
+- [Mandatory human review](adr/0011-no-suggestion-applied-without-a-human.md): why nothing
+  AI-generated is ever applied without an explicit approval.
+- [No retry that can bill twice](adr/0006-no-retry-that-can-bill-twice.md) and
+  [one generation at a time](adr/0008-one-generation-at-a-time.md): what keeps a paid API from
+  being billed twice for the same keys.
