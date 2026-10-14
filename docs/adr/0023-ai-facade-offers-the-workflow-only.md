@@ -7,21 +7,23 @@
 
 Before the first release, `TranslationAiServiceInterface` also exposed the inner steps of a
 generation: collecting the texts to send (`collectTexts()`), cutting them into chunks
-(`chunkTexts()`) and resolving the provider (`resolveProvider()`). Calling them in another order,
-or without the rest of the run, skips what the run guarantees: the lock, the per-chunk commit,
-the journal. No known integration called them.
+(`chunkTexts()`) and resolving the provider (`resolveProvider()`). An integration combining them
+with the provider would assemble a run of its own, outside what the run guarantees: the lock,
+the per-chunk commit, the journal. No known integration called them.
 
 ## Decision
 
-They are removed for good. The facade offers the workflow: generate the suggestions, approve,
-reject, one at a time or in batch.
+They are removed from the facade. They stay public methods of `SuggestionGenerator`, which the
+public contract does not list, for the cost estimator to price the very keys and prompts a run
+would send. The facade offers the workflow: generate the suggestions, approve, reject, one at a
+time or in batch.
 
 ## Consequences
 
 - An integration cannot assemble a run that bypasses the guards against double billing.
 - The steps of a run can change in a minor version: they are internal.
-- An integration needing something in between (an estimate, a preview) asks for it as a service
-  of its own, listed in the public contract.
+- An integration needing something in between asks for a service of its own, listed in the
+  public contract, as `GenerationCostEstimator` is for an estimate.
 
 ## Related
 

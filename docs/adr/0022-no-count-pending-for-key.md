@@ -6,8 +6,10 @@
 ## Context
 
 An integration asked for a method counting the pending suggestions of one key, to show it beside
-the key. The repository already exposes `createPendingQueryBuilder()`, an open query builder on
-the pending suggestions that a caller filters, sorts and paginates.
+the key. The repository already counts with `countPendingFiltered()`, whose search is a `LIKE`
+over the key and both values, not one exact key. It also exposes `createPendingQueryBuilder()`,
+an open query builder on the pending suggestions of one scope, that a caller filters, sorts and
+paginates.
 
 ## Decision
 

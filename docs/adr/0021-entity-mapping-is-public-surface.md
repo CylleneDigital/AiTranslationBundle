@@ -17,8 +17,7 @@ index or a constraint is a major version, with an entry in `UPGRADE.md`.
 ## Consequences
 
 - A minor or patch version never makes `doctrine:schema:validate` fail on a host.
-- A pull request touching the mapping says so, and is proven on MySQL, MariaDB and PostgreSQL:
-  SQLite proves neither a unique index on a nullable column, nor a key length, nor a collation.
+- A pull request touching the mapping says so: every host will have a migration to generate.
 - What the schema listener adds on MySQL and MariaDB ([0018](0018-byte-for-byte-comparison.md))
   is held to the same rule.
 

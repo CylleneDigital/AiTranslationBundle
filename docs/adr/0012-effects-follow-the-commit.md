@@ -9,7 +9,7 @@ Writing an override has effects outside the database: the bundle's cache is inva
 `OverrideSavedEvent` lets the host purge its HTTP caches or call a webhook. Many writes happen
 inside a transaction - a review locks its row, an override closes the pending suggestions of its
 key. An effect run before the commit announces a value a rollback may discard: a purged page
-rebuilt from uncommitted rows, a webhook for a change that never happened.
+rebuilt from the old rows before the commit, a webhook for a change that never happened.
 
 ## Decision
 
@@ -28,8 +28,10 @@ the listeners would no longer see which suggestion it was.
   effect.
 - A listener of `SuggestionRejectedEvent` that must only act on a committed rejection defers its
   effect (`kernel.terminate`, a Messenger message); the event's documentation says so.
-- The cache is also invalidated once more when the request, command or message is over, so a
-  map rebuilt from uncommitted rows in between does not survive.
+- The cache is also invalidated once more when the request, command or message is over: a host
+  writing inside its own transaction invalidates before its commit, and a map a concurrent
+  request rebuilt from the old rows in between would otherwise be served for the whole cache
+  TTL.
 - A new write path inside a transaction goes through the same method, or it announces values a
   rollback can take back.
 

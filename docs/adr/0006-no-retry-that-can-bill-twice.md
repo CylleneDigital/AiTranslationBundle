@@ -13,7 +13,7 @@ default, and an HTTP client can retry a failed request, both without knowing wha
 
 - The bundle's transport retries nothing, and the handler marks every failure unrecoverable, so
   no transport a host routes the message to retries it either: the message goes to the failure
-  transport.
+  transport when the host configured one, and is rejected otherwise.
 - An HTTP request is only retried on a response meaning the provider did not process it - rate
   limited, unavailable, overloaded - never on an error or a timeout that may follow a processed
   request.
@@ -29,6 +29,9 @@ default, and an HTTP client can retry a failed request, both without knowing wha
   could expire meanwhile and let a second run bill the same keys.
 - A host that routes the message to a transport of its own keeps that guarantee: it does not
   depend on the transport's retry strategy.
+- A worker killed mid-run does not fail its message: the transport redelivers it after its
+  redelivery timeout. The chunks already committed are skipped; the one in flight when the
+  worker died is billed again.
 - Any new retry, of a message or of a request, has to prove it cannot re-send what was billed.
 
 ## Related
