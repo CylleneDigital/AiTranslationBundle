@@ -319,4 +319,45 @@ class TranslationSuggestionRepository extends ServiceEntityRepository
 
         return (int) $deleted;
     }
+
+    /**
+     * Deletes every suggestion of one scope, whatever its status: what a scope purge
+     * removes. A run of that scope still with the provider finds its reserved rows gone,
+     * and stores nothing ({@see lockStillPending()}).
+     *
+     * @return int the number of deleted suggestions
+     */
+    public function deleteByScope(string $scope): int
+    {
+        /** @var int|numeric-string $deleted a DQL DELETE returns the affected row count */
+        $deleted = $this->createQueryBuilder('s')
+            ->delete()
+            ->where('s.scope = :scope')
+            ->setParameter('scope', $scope)
+            ->getQuery()
+            ->execute();
+
+        return (int) $deleted;
+    }
+
+    /**
+     * @return array<string, int> scope => number of suggestions, whatever their status
+     */
+    public function countPerScope(): array
+    {
+        /** @var list<array{scope: string, total: int|numeric-string}> $rows */
+        $rows = $this->createQueryBuilder('s')
+            ->select('s.scope', 'COUNT(s.id) AS total')
+            ->groupBy('s.scope')
+            ->getQuery()
+            ->getArrayResult();
+
+        $counts = [];
+
+        foreach ($rows as $row) {
+            $counts[$row['scope']] = (int) $row['total'];
+        }
+
+        return $counts;
+    }
 }

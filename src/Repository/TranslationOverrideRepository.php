@@ -508,4 +508,42 @@ class TranslationOverrideRepository extends ServiceEntityRepository
             ->getQuery()
             ->getSingleScalarResult();
     }
+
+    /**
+     * Every override of one scope, every locale and catalogue: what a scope purge removes.
+     *
+     * @return list<TranslationOverride>
+     */
+    public function findByScope(string $scope): array
+    {
+        /** @var list<TranslationOverride> $result */
+        $result = $this->createQueryBuilder('t')
+            ->andWhere('t.scope = :scope')
+            ->setParameter('scope', $scope)
+            ->getQuery()
+            ->getResult();
+
+        return $result;
+    }
+
+    /**
+     * @return array<string, int> scope => number of overrides
+     */
+    public function countPerScope(): array
+    {
+        /** @var list<array{scope: string, total: int|numeric-string}> $rows */
+        $rows = $this->createQueryBuilder('t')
+            ->select('t.scope', 'COUNT(t.id) AS total')
+            ->groupBy('t.scope')
+            ->getQuery()
+            ->getArrayResult();
+
+        $counts = [];
+
+        foreach ($rows as $row) {
+            $counts[$row['scope']] = (int) $row['total'];
+        }
+
+        return $counts;
+    }
 }

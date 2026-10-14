@@ -41,4 +41,18 @@ class ScopeParametersRepository extends ServiceEntityRepository
     {
         $this->getEntityManager()->remove($parameters);
     }
+
+    /**
+     * @return list<string> the scopes that have parameters
+     */
+    public function findScopes(): array
+    {
+        /** @var list<string> $scopes */
+        $scopes = $this->createQueryBuilder('p')
+            ->select('p.scope')
+            ->getQuery()
+            ->getSingleColumnResult();
+
+        return $scopes;
+    }
 }
