@@ -101,9 +101,11 @@ Three protections bound the billing of a run, on top of batching:
   `OverrideWriter::assertStorable()` applies to every write), and a source locale that is
   malformed or longer than 32. Such a run would otherwise bill the provider, then fail its
   first flush, or store suggestions no approval can ever apply (a malformed locale is never
-  an override). It has not started: it is not journaled, and the caller gets the exception.
-  The CLI already refuses unknown locales and catalogues upstream; this guards the PHP API
-  and `GenerateSuggestionsMessage`.
+  an override). A scope the host does not declare is refused the same way, when the host
+  declares scopes: a message queued for a channel deleted since bills nothing. It has not
+  started: it is not journaled, and the caller gets the exception. The CLI already refuses
+  unknown locales, catalogues and scopes upstream; this guards the PHP API and
+  `GenerateSuggestionsMessage`.
 
 - **Lock per (catalogue, target locale, scope)**: a run takes a non-blocking lock through
   `symfony/lock`. A second run targeting the same triple **skips its turn** (logged as `info`)

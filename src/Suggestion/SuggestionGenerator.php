@@ -21,6 +21,7 @@ use CylleneDigital\AiTranslationBundle\Provider\TranslationResult;
 use CylleneDigital\AiTranslationBundle\Repository\GenerationLogRepository;
 use CylleneDigital\AiTranslationBundle\Repository\TranslationSuggestionRepository;
 use CylleneDigital\AiTranslationBundle\Scope\ScopeParametersManager;
+use CylleneDigital\AiTranslationBundle\Scope\ScopeRegistry;
 use Psr\Log\LoggerInterface;
 use Psr\Log\NullLogger;
 use Symfony\Contracts\EventDispatcher\EventDispatcherInterface;
@@ -72,6 +73,7 @@ final class SuggestionGenerator
         private readonly TranslationValueValidator $valueValidator,
         private readonly GenerationLock $lock,
         private readonly EventDispatcherInterface $eventDispatcher,
+        private readonly ScopeRegistry $scopes,
         private readonly LoggerInterface $logger = new NullLogger(),
     ) {
     }
@@ -149,6 +151,14 @@ final class SuggestionGenerator
         // journal entry — and the same-language fallback finds texts for "en_<anything>".
         if (\strlen($sourceLocale) > TranslationOverride::MAX_LOCALE_LENGTH || 1 !== preg_match(LocaleFallback::PATTERN, $sourceLocale)) {
             throw new InvalidOverrideException(\sprintf('"%s" is not a valid source locale code.', mb_substr($sourceLocale, 0, 60)));
+        }
+
+        // A scope the host no longer declares — a channel deleted while its message waited
+        // in the queue: its rows are purged, or about to be, and nobody would review what
+        // the run bills. Refused before the provider is called. A host that declares no
+        // scopes accepts every code.
+        if (!$this->scopes->isKnownScope($scope)) {
+            throw new InvalidOverrideException(\sprintf('The scope "%s" is not declared by the host: the run is refused before the provider is called.', mb_substr($scope, 0, 60)));
         }
 
         // null = another run already holds the lock for this triple: skip rather than

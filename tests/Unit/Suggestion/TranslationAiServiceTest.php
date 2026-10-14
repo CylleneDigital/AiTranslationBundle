@@ -30,7 +30,9 @@ use CylleneDigital\AiTranslationBundle\Repository\GenerationLogRepository;
 use CylleneDigital\AiTranslationBundle\Repository\ScopeParametersRepository;
 use CylleneDigital\AiTranslationBundle\Repository\TranslationOverrideRepository;
 use CylleneDigital\AiTranslationBundle\Repository\TranslationSuggestionRepository;
+use CylleneDigital\AiTranslationBundle\Scope\NullScopeProvider;
 use CylleneDigital\AiTranslationBundle\Scope\ScopeParametersManager;
+use CylleneDigital\AiTranslationBundle\Scope\ScopeRegistry;
 use CylleneDigital\AiTranslationBundle\Suggestion\GenerationLock;
 use CylleneDigital\AiTranslationBundle\Suggestion\GenerationOutcome;
 use CylleneDigital\AiTranslationBundle\Suggestion\PlaceholderConsistencyChecker;
@@ -1344,6 +1346,7 @@ final class TranslationAiServiceTest extends TestCase
                 $validator,
                 $lock ?? new GenerationLock(new LockFactory(new InMemoryStore())),
                 $this->eventDispatcher,
+                new ScopeRegistry(new NullScopeProvider()),
             ),
             new SuggestionReviewer(
                 $this->suggestionRepository,
