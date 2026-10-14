@@ -5,8 +5,8 @@ Guide for coding agents working on this repository. It complements, without repe
 - [`README.md`](README.md) - what the bundle does, installation, extending
 - [`CONTRIBUTING.md`](CONTRIBUTING.md) - running the suite, the checks a pull request must pass,
   the conventions
-- [`docs/`](docs/index.md) - concepts, design decisions (`docs/design/`, read them before
-  changing the mechanism they describe) and operations
+- [`docs/`](docs/index.md) - concepts, provider bridges and operations
+- [`docs/adr/`](docs/adr/README.md) - the decision records: why each invariant below holds
 
 This file only holds what reading the code will not tell you.
 
@@ -43,20 +43,36 @@ This file only holds what reading the code will not tell you.
 
 ## Invariants not to break
 
+Each rule is here in full, with the names the code uses; its reasons are in the decision record it
+links ([`docs/adr/`](docs/adr/README.md)). Read the record before changing a rule, and write a new
+record rather than editing an accepted one - the records hold no path nor figure, this file does.
+
 - **Money first.** Generation calls a paid API. Anything that can bill the same keys twice (a
   retry, a rollback of stored results, a lost lock, a Messenger redelivery) is a bug. Hence
   `retry_strategy.max_retries: 0` on the bundle transport, the retry codes limited to responses
   meaning "not processed" (429, 503, 529), a `Retry-After` above 30 s never waited for, and one
   flush per chunk. A run refuses to start inside a database transaction (a rollback would
-  discard what was paid for), and the rows it creates are detached once it is over.
+  discard what was paid for), and the rows it creates are detached once it is over
+  ([0006](docs/adr/0006-no-retry-that-can-bill-twice.md),
+  [0007](docs/adr/0007-paid-results-committed-chunk-by-chunk.md)).
+- **One generation at a time per (catalogue, target locale, scope)**: `GenerationLock`, through
+  `symfony/lock`, non-blocking (a second run is skipped, `GenerationOutcome::alreadyRunning()`),
+  degraded when the store is unreachable (the run proceeds, a warning is logged: the unique index
+  on pending suggestions protects the data, the lock only the money)
+  ([0008](docs/adr/0008-one-generation-at-a-time.md)).
+- **Generation runs on the bundle's transport `cyllene_ai_translation`**, a name kept although it
+  lacks the `cyllene_digital_ai_translation` prefix: it is what every host's worker command names
+  ([0010](docs/adr/0010-own-messenger-transport.md)).
 - **Every run is journaled**, a run with nothing to translate included: generation is
   fire-and-forget, and the journal is how someone who was not watching the console knows it
   ran. Do not skip the "0 suggestion" entries. The one exception is a run failing at flush on
   the pending unique index (a lock store not shared between machines): the entity manager is
-  closed by then — `docs/operations/multi-server.md` says so.
-- **No suggestion is ever applied without a human decision** (`docs/design/human-review.md`):
-  no auto-approval, whatever the confidence. Approving or rejecting re-reads the status in the
-  database, row locked: a stale entity never writes over a newer decision.
+  closed by then — `docs/operations/multi-server.md` says so
+  ([0009](docs/adr/0009-every-run-is-journaled.md)).
+- **No suggestion is ever applied without a human decision**: no auto-approval, whatever the
+  confidence. Approving or rejecting re-reads the status in the database, row locked: a stale
+  entity never writes over a newer decision
+  ([0011](docs/adr/0011-no-suggestion-applied-without-a-human.md)).
 - **Effects follow the commit.** A write made inside a transaction of the bundle goes through
   `OverrideWriter::withEffectsAfter()`: the cache invalidation and `OverrideSavedEvent` (the
   host's HTTP purges and webhooks) must never announce a value a rollback may discard — a
@@ -66,32 +82,49 @@ This file only holds what reading the code will not tell you.
   Doctrine resets the entity's id): it is documented, and a listener that needs the commit
   defers its own effect. A review that fails after changing the suggestion in memory puts it back
   (`TranslationSuggestionRepository::restore()`): the rollback restores the database, not the
-  entity, and the host's next flush would write the change.
+  entity, and the host's next flush would write the change
+  ([0012](docs/adr/0012-effects-follow-the-commit.md)).
 - **Stale entities never decide.** Whatever reads a suggestion's status to change it — a
   review, an override closing the pending suggestions of its key, a retry closing an errored
   one — re-reads it in the database, rows locked (`lockStillPending()`,
-  `lockPendingByKeys()`): the identity map does not refresh an entity loaded earlier.
+  `lockPendingByKeys()`): the identity map does not refresh an entity loaded earlier
+  ([0013](docs/adr/0013-stale-entities-never-decide.md)).
 - **A batch is decided against the state it leaves** (`OverrideReader::planChanges()`): an
   import or a batch approval that changes a parent (the global value, the parent language's)
   compares the children with the new value, not the stored one — and reads only the rows of
-  its keys, never the whole locale.
+  its keys, never the whole locale
+  ([0014](docs/adr/0014-batch-decided-against-the-state-it-leaves.md)).
 - **The translation files are never written.** Overrides live in the database and are applied
-  over the compiled catalogues at runtime; the bundle never clears Symfony's translation cache.
+  over the compiled catalogues at runtime; the bundle never clears Symfony's translation cache
+  ([0001](docs/adr/0001-overrides-are-a-database-delta.md)).
 - **The decorator re-exposes every interface of `translator.default`** - dropping
-  `WarmableInterface` silently disables the catalogue warmup.
-- **Missing keys are computed within one language only** (`docs/design/same-language-fallback.md`):
-  following the framework's cross-language fallbacks would leave nothing to translate.
+  `WarmableInterface` silently disables the catalogue warmup
+  ([0002](docs/adr/0002-translator-decorated-at-priority-minus-10.md)).
+- **Missing keys are computed within one language only**: following the framework's
+  cross-language fallbacks would leave nothing to translate
+  ([0003](docs/adr/0003-missing-keys-within-one-language.md)).
+- **Providers are built at compile time**, one service per `providers` entry
+  (`cyllene_digital_ai_translation.provider.<name>`), picked by `match($type)`; a custom one joins
+  through the provider tag ([0004](docs/adr/0004-providers-built-at-compile-time.md)).
 - **No user interface, and no assumption of one** - in the code or in the docs. A Sylius (or any
-  platform) integration is a separate package.
+  platform) integration is a separate package ([0005](docs/adr/0005-no-user-interface.md)).
 - **The Flex recipe lives in `symfony/recipes-contrib`**
   (`cyllene-digital/ai-translation-bundle/<version>/`), not here: a change to the configuration
-  tree, the bundle class or the install steps has to be mirrored there.
+  tree, the bundle class or the install steps has to be mirrored there
+  ([0024](docs/adr/0024-flex-recipe-in-recipes-contrib.md)).
 - **The public contract is one page**, `docs/public-contract.md`: a listed method is its whole
   signature, a service constructor is not covered, and whatever the page does not name is
   internal. Renaming, removing or re-typing a listed symbol is a major version; the page's
-  tables are checked against the code by `tests/Unit/Docs/PublicContractDocsTest.php`.
+  tables are checked against the code by `tests/Unit/Docs/PublicContractDocsTest.php`
+  ([0020](docs/adr/0020-public-contract-is-one-page.md)).
 - **The entity mapping is public surface**: a column, an index or a constraint change forces every
-  host to generate a migration - major version only, with an `UPGRADE.md` entry.
+  host to generate a migration - major version only, with an `UPGRADE.md` entry
+  ([0021](docs/adr/0021-entity-mapping-is-public-surface.md)).
+
+What was left as it is on purpose - the race on the first write of an override, DBAL 3's
+savepoints left to the host, no `countPendingForKey()`, the steps of a run kept off the AI
+facade, no `CHANGELOG.md` - is in the records 0016, 0017, 0022, 0023 and 0025: read them before
+"fixing" one.
 
 ## Known pitfalls
 
@@ -103,12 +136,13 @@ This file only holds what reading the code will not tell you.
 - `prependExtension()` reads the bundle's raw config (it runs before processing): the last
   explicit `messenger_transport_dsn` wins. The default `doctrine://` transport is only declared
   when `symfony/doctrine-messenger` is installed; without it the message is handled in-process.
-- `intl` is optional: ICU formatting of an override and `\Locale` are both guarded.
+- `intl` is optional: ICU formatting of an override and `\Locale` are both guarded
+  ([0019](docs/adr/0019-intl-is-optional.md)).
 - Numbers shown to users go through `%F`, never `%f`: `sprintf()`'s `%f` follows `LC_NUMERIC`
   and prints a decimal comma on a French server.
 - `TranslationSuggestionRepository::transactional()` is hand-made on purpose:
   `EntityManager::wrapInTransaction()` closes the host's entity manager on any exception, a
-  refused approval included.
+  refused approval included ([0015](docs/adr/0015-hand-made-transactions.md)).
 - Every exception a host is expected to handle implements `Exception\ExceptionInterface` and
   extends the SPL exception that describes it — a new one must do both. Programming errors
   stay plain SPL exceptions: a generation run inside a transaction, an import or export
@@ -119,4 +153,6 @@ This file only holds what reading the code will not tell you.
   and `fr` two scopes. A new column compared byte for byte has to be listed there. It has two
   paths: DBAL 4.5's schema editor (handed back through ORM 3.7's `setSchema()`) and the in-place
   setters of DBAL 3.9 to 4.4. Code bridging two library versions cannot type-check against both,
-  which is why CI runs PHPStan on the highest dependencies only.
+  which is why CI runs PHPStan on the highest dependencies only
+  ([0018](docs/adr/0018-byte-for-byte-comparison.md),
+  [0026](docs/adr/0026-phpstan-on-highest-dependencies-only.md)).

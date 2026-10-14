@@ -8,6 +8,7 @@
 - [ ] PHPStan and PHP-CS-Fixer are green (`vendor/bin/phpstan analyse`, `vendor/bin/php-cs-fixer check`)
 - [ ] `UPGRADE.md` is up to date if the public contract changes: everything
       `docs/public-contract.md` lists, method signatures included
+- [ ] A decision taken or reversed has its record in `docs/adr/`
 - [ ] No real API key appears in the code, the tests or this description
 
 ## If the pull request touches the entity mapping

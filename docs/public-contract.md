@@ -144,3 +144,6 @@ caller relies on.
 - The compiled container beyond the identifiers above: private services, their arguments,
   the order of the compiler passes.
 - `tests/`: the kernels and helpers of the suite are not shipped in the package.
+
+The [decision records](adr/README.md) explain choices, some of them about internals: a record
+promises nothing, only this page says what is stable.

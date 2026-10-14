@@ -101,8 +101,11 @@ run. That is GitHub's default on public repositories, not something you did wron
 `docs/` is part of the change, not a follow-up:
 
 - `docs/concepts/`: what a thing is and how it behaves
-- `docs/design/`: a decision, its rejected alternatives, and its accepted costs
 - `docs/operations/`: running it (commands, caches, multi-server)
+- `docs/adr/`: the [decision records](docs/adr/README.md), why the bundle is built the way it
+  is and what was left as it is on purpose. Read the one a change touches first. A pull
+  request that takes a decision, or reverses one, adds a record: an accepted record is
+  superseded, not edited.
 
 ## What does not belong here
 

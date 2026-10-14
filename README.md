@@ -172,7 +172,7 @@ The console stays synchronous either way: it never dispatches the message. Anoth
 
 | Page | What it covers |
 |---|---|
-| [Index](docs/index.md) | The reading guide: concepts, bridges, operations, design decisions |
+| [Index](docs/index.md) | The reading guide: concepts, bridges, operations, decision records |
 | [Overrides](docs/concepts/overrides.md) | The decorated translator, scopes, the cache layers, automatic invalidation |
 | [Catalogues](docs/concepts/catalogues.md) | The scan, additional roots, the same-language fallback chain, what "missing" means |
 | [Coverage](docs/concepts/coverage.md) | The default locale, what counts as translated, the CI gate, the invisible drift |
@@ -185,6 +185,7 @@ The console stays synchronous either way: it never dispatches the message. Anoth
 | [Caches](docs/operations/cache.md) | What is invalidated automatically, multi-server and worker setups |
 | [Running on several servers](docs/operations/multi-server.md) | The shared cache pool and lock store a multi-node deployment needs |
 | [Doctrine DBAL 3](docs/operations/doctrine-dbal-3.md) | The savepoints setting a DBAL 3 host needs, and why |
+| [Decision records](docs/adr/README.md) | Why the bundle is built the way it is, one decision per file |
 
 ## Extending
 
