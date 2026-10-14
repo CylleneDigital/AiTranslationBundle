@@ -25,8 +25,8 @@ instead.
 - The journal grows with every scheduled run, empty ones included; a retention purge, driven by
   the cleanup command, keeps it bounded.
 - One run leaves no entry: one whose flush failed on the pending unique index (a lock store not
-  shared between machines, and the other run stored the key first), the entity manager being closed by then. The multi-server
-  documentation says so.
+  shared between machines, and the other run stored the key first), the entity manager being
+  closed by then. The multi-server documentation says so.
 
 ## Related
 
