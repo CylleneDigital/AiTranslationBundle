@@ -40,27 +40,52 @@ final readonly class OverrideReader
      */
     public function getTranslationsForCatalogue(string $catalogue, string $locale, string $scope = ''): array
     {
+        return $this->getTranslationsForCatalogues([$catalogue], $locale, $scope)[$catalogue];
+    }
+
+    /**
+     * {@see getTranslationsForCatalogue()} for several catalogues of one view at once:
+     * two queries for the whole set, where a loop over the catalogues costs two each.
+     * Every catalogue asked for is in the result, an empty one included. The files are
+     * still read catalogue by catalogue.
+     *
+     * @param list<string> $catalogues
+     *
+     * @return array<string, array<string, array{original: ?string, override: ?string, hasOverride: bool, inherited: ?string, inheritedFrom: array{locale: string, scope: string}|null}>> catalogue => key => entry
+     */
+    public function getTranslationsForCatalogues(array $catalogues, string $locale, string $scope = ''): array
+    {
+        $catalogues = array_values(array_unique($catalogues));
         $empty = ['original' => null, 'override' => null, 'hasOverride' => false, 'inherited' => null, 'inheritedFrom' => null];
         $translations = [];
 
-        foreach ($this->catalogues->getOriginalValues($catalogue, $locale) as $key => $value) {
-            $translations[$key] = ['original' => $value] + $empty;
+        foreach ($catalogues as $catalogue) {
+            $translations[$catalogue] = [];
+
+            foreach ($this->catalogues->getOriginalValues($catalogue, $locale) as $key => $value) {
+                $translations[$catalogue][$key] = ['original' => $value] + $empty;
+            }
         }
 
-        foreach ($this->repository->findByLocaleAndCatalogue($locale, $catalogue, $scope) as $override) {
+        foreach ($this->repository->findByLocaleAndCatalogues($locale, $catalogues, $scope) as $override) {
+            $catalogue = $override->getCatalogue();
             $key = $override->getKey();
-            $translations[$key] ??= $empty;
-            $translations[$key]['override'] = $override->getValue();
-            $translations[$key]['hasOverride'] = true;
+            $translations[$catalogue][$key] ??= $empty;
+            $translations[$catalogue][$key]['override'] = $override->getValue();
+            $translations[$catalogue][$key]['hasOverride'] = true;
         }
 
-        foreach ($this->inherited($locale, $scope, $catalogue)[$catalogue] ?? [] as $key => $row) {
-            $translations[$key] ??= $empty;
-            $translations[$key]['inherited'] = $row['value'];
-            $translations[$key]['inheritedFrom'] = ['locale' => $row['locale'], 'scope' => $row['scope']];
+        foreach ($this->inherited($locale, $scope, $catalogues) as $catalogue => $rows) {
+            foreach ($rows as $key => $row) {
+                $translations[$catalogue][$key] ??= $empty;
+                $translations[$catalogue][$key]['inherited'] = $row['value'];
+                $translations[$catalogue][$key]['inheritedFrom'] = ['locale' => $row['locale'], 'scope' => $row['scope']];
+            }
         }
 
-        ksort($translations);
+        foreach ($translations as &$entries) {
+            ksort($entries);
+        }
 
         return $translations;
     }
@@ -209,7 +234,7 @@ final readonly class OverrideReader
      */
     public function getInheritedValue(string $key, string $catalogue, string $locale, string $scope = ''): ?string
     {
-        return $this->inherited($locale, $scope, $catalogue, $key)[$catalogue][$key]['value'] ?? null;
+        return $this->inherited($locale, $scope, [$catalogue], $key)[$catalogue][$key]['value'] ?? null;
     }
 
     public function hasOverride(string $key, string $catalogue, string $locale, string $scope = ''): bool
@@ -336,12 +361,14 @@ final readonly class OverrideReader
      * locale, the scope's row before the global one. For a "fr_FR" entry of scope "b2b":
      * the global "fr_FR" row, then the "b2b" "fr" row, then the global "fr" row.
      *
+     * @param list<string>|null $catalogues null = every catalogue
+     *
      * @return array<string, array<string, array{value: string, locale: string, scope: string}>> catalogue => key => row
      */
-    private function inherited(string $locale, string $scope, ?string $catalogue = null, ?string $key = null): array
+    private function inherited(string $locale, string $scope, ?array $catalogues = null, ?string $key = null): array
     {
         $rows = array_values(array_filter(
-            $this->repository->findInheritable(LocaleFallback::chain($locale), $scope, $catalogue, $key),
+            $this->repository->findInheritable(LocaleFallback::chain($locale), $scope, $catalogues, $key),
             // The entry's own row is its override, not something it inherits.
             static fn (array $row): bool => $row['locale'] !== $locale || $row['scope'] !== $scope,
         ));
