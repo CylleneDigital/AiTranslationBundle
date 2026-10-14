@@ -155,6 +155,9 @@ and only change in a major version:
   one machine does not guard workers on several machines
   ([Running on several servers](operations/multi-server.md)). When the store cannot be
   reached, the run proceeds unguarded and a warning is logged.
+- **A run for a scope the host does not declare is refused** before the provider is called
+  (`InvalidOverrideException`), when the host declares scopes: a message queued for a scope
+  deleted since bills nothing.
 - **A key that has a pending suggestion is not sent**, an errored one included, unless the run
   retries errors.
 - **The keys of a batch are reserved before the provider is called**: stored as errored

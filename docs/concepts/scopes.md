@@ -73,7 +73,8 @@ It runs in a transaction of its own: call it once the host's deletion is committ
 the flush, nor from inside the host's transaction, whose rollback would otherwise follow an
 announced purge. If the call fails, the
 rows stay, and [`purge-scopes`](../operations/commands.md#purge-scopes) catches them later.
-The global scope `''` is refused.
+The global scope `''` is refused. A generation message still queued for the deleted scope
+is refused before the provider is called, once the host no longer declares the scope.
 `ScopePurger::findStoredScopes()` lists the scopes the bundle stores something for, with
 what each holds. See the [decision record](../adr/0025-a-deleted-scope-is-purged-journal-kept.md).
 

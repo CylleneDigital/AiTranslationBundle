@@ -106,7 +106,9 @@ method name is fine, a rename supersedes nothing), this file does.
 - **A deleted scope is purged by `ScopePurger`, in a transaction of its own**, called after the
   host's deletion is committed: overrides through `OverrideWriter::removeMany()` (one event
   each), suggestions whatever their status, parameters; the journal stays; no `flush`
-  argument; `''` refused ([0025](docs/adr/0025-a-deleted-scope-is-purged-journal-kept.md)).
+  argument; `''` refused. A run for a scope the host does not declare is refused before the
+  provider is called (`SuggestionGenerator`, `ScopeRegistry::isKnownScope()`)
+  ([0025](docs/adr/0025-a-deleted-scope-is-purged-journal-kept.md)).
 - **The translation files are never written.** Overrides live in the database and are applied
   over the compiled catalogues at runtime; the bundle never clears Symfony's translation cache
   ([0001](docs/adr/0001-overrides-are-a-database-delta.md)).
