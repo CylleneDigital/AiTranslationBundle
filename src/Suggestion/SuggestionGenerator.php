@@ -197,7 +197,11 @@ final class SuggestionGenerator
             try {
                 try {
                     foreach ($this->chunkTexts($texts) as $chunk) {
-                        $this->reserve($chunk, $new, $errored, $catalogue, $targetLocale, $sourceLocale, $provider->getName(), $scope, $onlyMissing);
+                        $chunk = $this->reserve($chunk, $done, $new, $errored, $catalogue, $targetLocale, $sourceLocale, $provider->getName(), $scope, $onlyMissing);
+
+                        if ([] === $chunk) {
+                            continue;
+                        }
 
                         try {
                             $results = $provider->translate($chunk, $sourceLocale, $targetLocale, $catalogue);
@@ -264,43 +268,90 @@ final class SuggestionGenerator
 
     /**
      * Stores the keys of a batch as errored rows marked in flight, before the provider is
-     * called. A key whose previous run failed has that row reserved instead of a new one,
-     * keeping the mode of the run that first failed on it. Flushed: the reservation has to
-     * be in the database while the call runs — a kill during the call leaves it there, and
-     * an unguarded concurrent run that reserved the same key first fails this flush on the
-     * pending unique index before paying for it.
+     * called, and returns the keys still to send. A key whose previous run failed has that
+     * row reserved instead of a new one, keeping the mode of the run that first failed on
+     * it — re-read in the database and locked first: a row someone reviewed since (filled by
+     * hand and approved, rejected) is left as it is, and its key is not sent, nor paid for.
+     * Flushed: the reservation has to be in the database while the call runs — a kill during
+     * the call leaves it there, and an unguarded concurrent run that reserved the same key
+     * first fails this flush on the pending unique index before paying for it.
      *
      * @param array<string, string>                   $chunk
+     * @param array<string, true>                     $done
      * @param list<TranslationSuggestion>             $new     the rows this run created
      * @param array<array-key, TranslationSuggestion> $errored the errored rows, the reserved ones added
+     *
+     * @return array<string, string> the keys of the batch still to send
      */
-    private function reserve(array $chunk, array &$new, array &$errored, string $catalogue, string $targetLocale, string $sourceLocale, string $providerName, string $scope, bool $onlyMissing): void
+    private function reserve(array $chunk, array &$done, array &$new, array &$errored, string $catalogue, string $targetLocale, string $sourceLocale, string $providerName, string $scope, bool $onlyMissing): array
     {
-        $reservedAt = (new \DateTimeImmutable())->format(self::IN_FLIGHT_FORMAT);
+        return $this->suggestionRepository->transactional(function () use ($chunk, &$done, &$new, &$errored, $catalogue, $targetLocale, $sourceLocale, $providerName, $scope, $onlyMissing): array {
+            $stillErrored = $this->lockStillPendingByKey(array_intersect_key($errored, $chunk));
+            $reservedAt = (new \DateTimeImmutable())->format(self::IN_FLIGHT_FORMAT);
 
-        foreach ($chunk as $key => $sourceValue) {
-            $key = (string) $key;
+            foreach ($chunk as $key => $sourceValue) {
+                $key = (string) $key;
 
-            if (isset($errored[$key])) {
-                $row = $errored[$key];
-                $row->recordGenerationError(self::INTERRUPTED, $providerName, $sourceValue);
-                $row->setMetadata([...$row->getMetadata() ?? [], self::IN_FLIGHT => $reservedAt]);
-            } else {
-                $row = $new[] = $errored[$key] = TranslationSuggestion::failed($key, $catalogue, $targetLocale, $sourceValue, $sourceLocale, $providerName, self::INTERRUPTED, $scope);
-                $row->setMetadata([self::ONLY_MISSING => $onlyMissing, self::IN_FLIGHT => $reservedAt]);
+                if (isset($errored[$key]) && !isset($stillErrored[$key])) {
+                    unset($chunk[$key]);
+                    $done[$key] = true;
+                    $this->logReviewedMeanwhile('AI translation key left out of its batch: its errored suggestion was reviewed since the run started.', $catalogue, $targetLocale, $scope, $key);
+
+                    continue;
+                }
+
+                if (isset($errored[$key])) {
+                    $row = $errored[$key];
+                    $row->recordGenerationError(self::INTERRUPTED, $providerName, $sourceValue);
+                    $row->setMetadata([...$row->getMetadata() ?? [], self::IN_FLIGHT => $reservedAt]);
+                } else {
+                    $row = $new[] = $errored[$key] = TranslationSuggestion::failed($key, $catalogue, $targetLocale, $sourceValue, $sourceLocale, $providerName, self::INTERRUPTED, $scope);
+                    $row->setMetadata([self::ONLY_MISSING => $onlyMissing, self::IN_FLIGHT => $reservedAt]);
+                }
+
+                $this->suggestionRepository->saveDeferred($row);
             }
 
-            $this->suggestionRepository->saveDeferred($row);
+            $this->suggestionRepository->flush();
+
+            return $chunk;
+        });
+    }
+
+    /**
+     * Which of these rows are still pending in the database, locked until the end of the
+     * caller's transaction, by key.
+     *
+     * @param array<array-key, TranslationSuggestion> $rows
+     *
+     * @return array<string, TranslationSuggestion>
+     */
+    private function lockStillPendingByKey(array $rows): array
+    {
+        $pending = [];
+
+        foreach ($this->suggestionRepository->lockStillPending(array_values($rows)) as $row) {
+            $pending[$row->getKey()] = $row;
         }
 
-        $this->suggestionRepository->flush();
+        return $pending;
+    }
+
+    private function logReviewedMeanwhile(string $message, string $catalogue, string $targetLocale, string $scope, string $key): void
+    {
+        $this->logger->info($message, [
+            'catalogue' => $catalogue,
+            'target_locale' => $targetLocale,
+            'scope' => $scope,
+            'key' => $key,
+        ]);
     }
 
     /**
      * Fills the reserved rows of a batch from the provider's reply, inside the caller's
      * transaction: only the rows still pending in the database, locked. A row closed while
      * the batch was with the provider (an override written for its key, a rejection) is
-     * left closed — the person decided — and its paid translation dropped. A key the reply
+     * left as it is — the person decided — and its paid translation dropped. A key the reply
      * left out was paid for all the same: its row stays errored, with the reason, rather
      * than a silent gap the next run re-bills while the journal says "success".
      *
@@ -313,20 +364,11 @@ final class SuggestionGenerator
      */
     private function storeReply(array $chunk, iterable $results, array &$done, array $errored, ?TranslationProviderException &$invalidReply, string $catalogue, string $targetLocale, string $providerName, string $scope): int
     {
-        $reserved = [];
-
-        foreach ($this->suggestionRepository->lockStillPending(array_values(array_intersect_key($errored, $chunk))) as $row) {
-            $reserved[$row->getKey()] = $row;
-        }
+        $reserved = $this->lockStillPendingByKey(array_intersect_key($errored, $chunk));
 
         foreach (array_diff_key($chunk, $reserved) as $key => $sourceValue) {
             $done[(string) $key] = true;
-            $this->logger->info('AI translation reply dropped: the key was closed while its batch was with the provider.', [
-                'catalogue' => $catalogue,
-                'target_locale' => $targetLocale,
-                'scope' => $scope,
-                'key' => (string) $key,
-            ]);
+            $this->logReviewedMeanwhile('AI translation reply dropped: the key was reviewed while its batch was with the provider.', $catalogue, $targetLocale, $scope, (string) $key);
         }
 
         $created = 0;
@@ -389,39 +431,45 @@ final class SuggestionGenerator
      * refills these rows. The keys are marked handled, so a later failure of the same
      * run does not store them twice. A new row records the run's mode
      * (`metadata.only_missing`): the retry treats its key the way that run would have. A
-     * row a retry fails on again keeps the mode of the run that first failed on it.
+     * row a retry fails on again keeps the mode of the run that first failed on it. A row
+     * already stored — reserved, or left errored by a previous run — is only updated while it
+     * is still pending in the database.
      *
      * @param array<array-key, string>                $texts
      * @param array<string, true>                     $done
      * @param list<TranslationSuggestion>             $new     the rows this run created
-     * @param array<array-key, TranslationSuggestion> $errored the rows a previous run already left errored
+     * @param array<array-key, TranslationSuggestion> $errored the errored rows, the reserved ones included
      */
     private function storeFailures(array $texts, array &$done, array &$new, array $errored, string $error, string $catalogue, string $targetLocale, string $sourceLocale, string $providerName, string $scope, bool $onlyMissing): void
     {
-        $count = 0;
+        $texts = array_diff_key($texts, $done);
 
-        foreach ($texts as $key => $sourceValue) {
-            $key = (string) $key;
-
-            if (isset($done[$key])) {
-                continue;
-            }
-
-            if (isset($errored[$key])) {
-                $this->recordFailure($errored[$key], $error, $providerName, $sourceValue);
-            } else {
-                $failed = $new[] = TranslationSuggestion::failed($key, $catalogue, $targetLocale, $sourceValue, $sourceLocale, $providerName, $error, $scope);
-                $failed->setMetadata([self::ONLY_MISSING => $onlyMissing]);
-                $this->suggestionRepository->saveDeferred($failed);
-            }
-
-            $done[$key] = true;
-            ++$count;
+        if ([] === $texts) {
+            return;
         }
 
-        if ($count > 0) {
+        $this->suggestionRepository->transactional(function () use ($texts, &$done, &$new, $errored, $error, $catalogue, $targetLocale, $sourceLocale, $providerName, $scope, $onlyMissing): void {
+            // The rows already stored are re-read and locked: one reviewed while the run
+            // went on (filled by hand and approved, rejected) is never written over.
+            $stillErrored = $this->lockStillPendingByKey(array_intersect_key($errored, $texts));
+
+            foreach ($texts as $key => $sourceValue) {
+                $key = (string) $key;
+                $done[$key] = true;
+
+                if (isset($stillErrored[$key])) {
+                    $this->recordFailure($stillErrored[$key], $error, $providerName, $sourceValue);
+                } elseif (isset($errored[$key])) {
+                    $this->logReviewedMeanwhile('AI translation failure not recorded: the errored suggestion was reviewed while the run went on.', $catalogue, $targetLocale, $scope, $key);
+                } else {
+                    $failed = $new[] = TranslationSuggestion::failed($key, $catalogue, $targetLocale, $sourceValue, $sourceLocale, $providerName, $error, $scope);
+                    $failed->setMetadata([self::ONLY_MISSING => $onlyMissing]);
+                    $this->suggestionRepository->saveDeferred($failed);
+                }
+            }
+
             $this->suggestionRepository->flush();
-        }
+        });
     }
 
     /** An errored row that failed (again): its reservation, if any, is over. */

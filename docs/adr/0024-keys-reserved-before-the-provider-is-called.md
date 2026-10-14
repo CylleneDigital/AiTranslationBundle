@@ -19,8 +19,11 @@ run left no trace either.
 ## Decision
 
 Before each provider call, the keys of the batch are stored as errored suggestions marked in
-flight (when the batch was reserved), and flushed. The reply fills them, re-read in the
-database and locked; a failure records its error on them. Either way the in-flight mark goes.
+flight (when the batch was reserved), and flushed. The reply fills them; a failure records its
+error on them. Either way the in-flight mark goes. Every write on a reserved or errored row -
+the reservation of a row a previous run left errored, the reply, a failure - re-reads it in the
+database, locked, and leaves alone a row someone reviewed meanwhile: a reserved row is in the
+review queue, and can be filled by hand and approved while its batch is with the provider.
 
 A run that starts again skips the reserved keys, like any pending suggestion. Sending them
 again is a run that retries errors, decided by someone. A retry carries the time it was asked
@@ -43,8 +46,11 @@ retry does not bill them twice.
   still has no entry for it; the rows are its trace.
 - While a batch is with the provider, its reserved rows are in the review queue like other
   errored rows; the in-flight mark lets an integration tell them apart.
-- A row closed while its batch is with the provider (an override written for its key, a
-  rejection) stays closed, and its paid translation is dropped.
+- A row reviewed while its batch is with the provider (filled by hand and approved, closed by
+  an override written for its key, rejected) stays as the person left it, and its paid
+  translation is dropped, or its failure not recorded.
+- An errored row reviewed after a retry started and before its batch is reserved is left out
+  of the batch: its key is not sent, nor paid for.
 - Of two runs an unshared lock store let through, the one that reserves a key the other holds
   fails on the pending unique index before paying for that batch, not after.
 - One more flush per batch, negligible next to the provider call, and no mapping change.
