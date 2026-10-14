@@ -72,7 +72,8 @@ It runs in a transaction of its own: call it once the host's deletion is committ
 `sylius.channel.post_delete`), never from a Doctrine `postRemove` listener, which runs inside
 the flush, nor from inside the host's transaction, whose rollback would otherwise follow an
 announced purge. If the call fails, the
-rows stay, and a later cleanup catches them. The global scope `''` is refused.
+rows stay, and [`purge-scopes`](../operations/commands.md#purge-scopes) catches them later.
+The global scope `''` is refused.
 `ScopePurger::findStoredScopes()` lists the scopes the bundle stores something for, with
 what each holds. See the [decision record](../adr/0025-a-deleted-scope-is-purged-journal-kept.md).
 

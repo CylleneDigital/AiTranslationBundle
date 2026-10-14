@@ -46,7 +46,8 @@ error behaviour:
 - **Operations** (`operations/`), one file per topic:
   - [CLI commands](operations/commands.md): the interactive console
     (`cyllene:ai-translation`, every guided task) and the automation commands
-    (`coverage`, `generate`, `export-overrides`, `import-overrides`, `cleanup-suggestions`).
+    (`coverage`, `generate`, `export-overrides`, `import-overrides`, `cleanup-suggestions`,
+    `purge-scopes`).
   - [Caches](operations/cache.md): the cache layers at play, what invalidates them, when
     to step in manually.
   - [Running on several servers](operations/multi-server.md): the two settings a multi-node
