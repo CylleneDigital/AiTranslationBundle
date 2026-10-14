@@ -105,6 +105,7 @@ What the services and interfaces hand over, constructors included:
 | `Provider\TranslationResult` | `$translation`, `$confidence`, `$metadata` |
 | `Provider\ProviderRunEstimate` | `$inputTokens`, `$outputTokens`, `$cost`, `$currency`, `$quotaRemaining`, `$quotaLimit`, `$lowerBound` |
 | `Suggestion\GenerationOutcome` | `$completed`, `$created` |
+| `Scope\ScopeData` | `$overrides`, `$suggestions`, `$parameters`, `isEmpty()` |
 | `Suggestion\PluralCategories` | `missingIn()` |
 | `Coverage\CoverageReport` | `$defaultLocale`, `$locales`, `getLocale()` |
 | `Coverage\LocaleCoverage` | `$locale`, `$translated`, `$missing`, `$pendingSuggestions`, `$missingKeys`, `getTotal()`, `getPercent()`, `isBelow()`, `isComplete()` |
@@ -137,6 +138,7 @@ thing: an interface can be decorated, these classes are `final`.
 | `Provider\TranslationProviderRegistry` | `getNames()`, `has()` |
 | `Estimation\GenerationCostEstimator` | `estimate()` |
 | `Scope\ScopeParametersManager` | `getPromptContext()`, `setPromptContext()`, `remove()` |
+| `Scope\ScopePurger` | `purge()`, `findStoredScopes()` |
 
 `createPendingQueryBuilder()` returns an open query builder for a caller to filter, sort and
 paginate: its root alias `o` and the field names of `TranslationSuggestion` are what such a

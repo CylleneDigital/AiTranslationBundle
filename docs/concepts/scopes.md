@@ -55,6 +55,27 @@ the import files:
 - **exports / imports**: the scope travels with each entry (XLIFF `category`
   attribute, CSV `scope` column), so a backup restores every scope faithfully.
 
+## When a scope disappears
+
+A scope the host deletes (a sales channel, a site) leaves its rows behind, and they would
+apply again to a new scope created with the same code. `ScopePurger::purge(scope)` removes
+what the bundle stores for it:
+
+| Data | Purged |
+| --- | --- |
+| Overrides | Yes, through the writer: one `OverrideRemovedEvent` each, the caches invalidated, after the commit |
+| Suggestions, whatever their status | Yes, without events |
+| Parameters (the prompt context) | Yes |
+| Generation journal | No: it records what was paid for, and is never served |
+
+It runs in a transaction of its own: call it once the host's deletion is committed (Sylius:
+`sylius.channel.post_delete`), never from a Doctrine `postRemove` listener, which runs inside
+the flush, nor from inside the host's transaction, whose rollback would otherwise follow an
+announced purge. If the call fails, the
+rows stay, and a later cleanup catches them. The global scope `''` is refused.
+`ScopePurger::findStoredScopes()` lists the scopes the bundle stores something for, with
+what each holds. See the [decision record](../adr/0025-a-deleted-scope-is-purged-journal-kept.md).
+
 Configuration side: nothing to configure in the bundle itself; the whole dimension is
 driven by the host's provider. See the
 [configuration reference](../configuration-reference.md) § Scopes for the runtime notes.

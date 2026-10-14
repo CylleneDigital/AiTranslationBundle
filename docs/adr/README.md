@@ -44,3 +44,4 @@ Alternatives rejected when there were some, Consequences, Related) and a line in
 | 0022 | [No `countPendingForKey()`: `createPendingQueryBuilder()` is the extension point](0022-no-count-pending-for-key.md) |
 | 0023 | [The AI facade only offers the workflow, not its steps](0023-ai-facade-offers-the-workflow-only.md) |
 | 0024 | [The keys of a batch are reserved before the provider is called](0024-keys-reserved-before-the-provider-is-called.md) |
+| 0025 | [A deleted scope is purged in a transaction of its own, its journal kept](0025-a-deleted-scope-is-purged-journal-kept.md) |

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace CylleneDigital\AiTranslationBundle\Tests\App;
 
 use CylleneDigital\AiTranslationBundle\CylleneDigitalAiTranslationBundle;
+use CylleneDigital\AiTranslationBundle\Scope\ScopePurger;
 use Doctrine\Bundle\DoctrineBundle\DoctrineBundle;
 use Psr\Log\NullLogger;
 use Symfony\Bundle\FrameworkBundle\FrameworkBundle;
@@ -45,6 +46,10 @@ class TestKernel extends Kernel
         // SHELL_VERBOSITY says: the failures the suite provokes on purpose would show up
         // as unexpected output. Tests that check a log entry use their own logger.
         $container->services()->set('logger', NullLogger::class);
+
+        // A service of the public contract no bundle code depends on yet: the container
+        // would drop it as unused, where a host injects it.
+        $container->services()->alias('test.scope_purger', ScopePurger::class)->public();
 
         $container->extension('framework', [
             'secret' => 'test-secret',
