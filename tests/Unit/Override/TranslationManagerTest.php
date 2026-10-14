@@ -89,8 +89,8 @@ final class TranslationManagerTest extends TestCase
         $orphan->setValue('Orpheline');
 
         $this->repository
-            ->method('findByLocaleAndCatalogue')
-            ->with('fr_FR', 'shop/Product/messages')
+            ->method('findByLocaleAndCatalogues')
+            ->with('fr_FR', ['shop/Product/messages'])
             ->willReturn([$override, $orphan]);
 
         $manager = $this->createManager();
@@ -110,7 +110,7 @@ final class TranslationManagerTest extends TestCase
 
     public function testAKeyOnlyTranslatedInAnotherLanguageIsMissing(): void
     {
-        $this->repository->method('findByLocaleAndCatalogue')->willReturn([]);
+        $this->repository->method('findByLocaleAndCatalogues')->willReturn([]);
 
         $manager = $this->createManager();
 
@@ -215,8 +215,8 @@ final class TranslationManagerTest extends TestCase
         $scoped->setValue('Ajouter au panier (B2B)');
 
         $this->repository
-            ->method('findByLocaleAndCatalogue')
-            ->willReturnCallback(static fn (string $locale, string $catalogue, string $scope = ''): array => match ($scope) {
+            ->method('findByLocaleAndCatalogues')
+            ->willReturnCallback(static fn (string $locale, array $catalogues, string $scope = ''): array => match ($scope) {
                 '' => [$global],
                 'b2b' => [$scoped],
                 default => [],

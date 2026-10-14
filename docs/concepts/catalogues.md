@@ -55,6 +55,11 @@ at compile time).
  'inheritedFrom' => ['locale' => string, 'scope' => string] | null]
 ```
 
+A screen showing several catalogues at once reads them with
+`OverrideReader::getTranslationsForCatalogues(catalogues, locale, scope)`: the same entries,
+indexed by catalogue, for two queries whatever the number of catalogues, where a loop costs two
+per catalogue. The files are still read catalogue by catalogue.
+
 - **`original`** merges the files of the **same-language fallback chain**: for `fr_FR`, the
   `*.fr.*` files first, overlaid by the more specific `*.fr_FR.*` files. No **cross-language**
   fallback: a key only defined in English is correctly reported as **missing** in French,

@@ -81,7 +81,8 @@ Two array shapes these interfaces return are part of it:
 
 - `TranslationManagerInterface::getTranslationsForCatalogue()`: one entry per key, with
   `original`, `override`, `hasOverride`, `inherited` and `inheritedFrom` (`locale`, `scope`,
-  or `null`).
+  or `null`). `OverrideReader::getTranslationsForCatalogues()` (a service, below) returns
+  those entries for each catalogue asked for, indexed by catalogue, an empty one included.
 - `PlaceholderConsistencyChecker::explain()` (a service, below): `missing` and `unexpected`.
 
 ## Events and exceptions
@@ -125,7 +126,7 @@ thing: an interface can be decorated, these classes are `final`.
 
 | Service | Methods and constants |
 |---|---|
-| `Override\OverrideReader` | `getBaselineValue()`, `getInheritedValue()`, `getFileValue()` |
+| `Override\OverrideReader` | `getBaselineValue()`, `getInheritedValue()`, `getFileValue()`, `getTranslationsForCatalogues()` |
 | `Override\TranslationValueValidator` | `validate()` |
 | `Repository\TranslationSuggestionRepository` | `find()`, `findBy()`, `countPendingFiltered()`, `createPendingQueryBuilder()` |
 | `Transfer\OverrideExporter` | `supports()`, `FORMATS`, `FORMAT_CSV`, `FORMAT_XLIFF` |

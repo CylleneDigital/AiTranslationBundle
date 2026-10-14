@@ -60,19 +60,29 @@ class TranslationOverrideRepository extends ServiceEntityRepository
     }
 
     /**
+     * The overrides of these catalogues in one (locale, scope): one query for a whole view,
+     * filtered in SQL — a single catalogue costs what it always cost.
+     *
+     * @param list<string> $catalogues
+     *
      * @return list<TranslationOverride>
      */
-    public function findByLocaleAndCatalogue(string $locale, string $catalogue, string $scope = ''): array
+    public function findByLocaleAndCatalogues(string $locale, array $catalogues, string $scope = ''): array
     {
+        if ([] === $catalogues) {
+            return [];
+        }
+
         /** @var list<TranslationOverride> $result */
         $result = $this->createQueryBuilder('t')
             ->andWhere('t.locale = :locale')
-            ->andWhere('t.catalogue = :catalogue')
+            ->andWhere('t.catalogue IN (:catalogues)')
             ->andWhere('t.scope = :scope')
             ->setParameter('locale', $locale)
-            ->setParameter('catalogue', $catalogue)
+            ->setParameter('catalogues', $catalogues)
             ->setParameter('scope', $scope)
-            ->orderBy('t.key', 'ASC')
+            ->orderBy('t.catalogue', 'ASC')
+            ->addOrderBy('t.key', 'ASC')
             ->getQuery()
             ->getResult();
 
@@ -141,15 +151,20 @@ class TranslationOverrideRepository extends ServiceEntityRepository
     /**
      * The overrides a (locale, scope) entry can inherit from, as scalar rows: every locale
      * of the language chain, in the global scope and in $scope — the entry's own rows
-     * included, the caller sets them apart. Narrowed to one catalogue, and to one key, when
-     * given: the reads behind a catalogue view, a baseline, an import.
+     * included, the caller sets them apart. Narrowed to these catalogues, and to one key,
+     * when given: the reads behind a catalogue view, a baseline, an import.
      *
      * @param non-empty-list<string> $locales
+     * @param list<string>|null      $catalogues null = every catalogue
      *
      * @return list<array{key: string, catalogue: string, locale: string, scope: string, value: string}>
      */
-    public function findInheritable(array $locales, string $scope, ?string $catalogue = null, ?string $key = null): array
+    public function findInheritable(array $locales, string $scope, ?array $catalogues = null, ?string $key = null): array
     {
+        if ([] === $catalogues) {
+            return [];
+        }
+
         $qb = $this->createQueryBuilder('t')
             ->select('t.key', 't.catalogue', 't.locale', 't.scope', 't.value')
             ->andWhere('t.locale IN (:locales)')
@@ -157,8 +172,8 @@ class TranslationOverrideRepository extends ServiceEntityRepository
             ->setParameter('locales', $locales)
             ->setParameter('scopes', '' === $scope ? [''] : ['', $scope]);
 
-        if (null !== $catalogue) {
-            $qb->andWhere('t.catalogue = :catalogue')->setParameter('catalogue', $catalogue);
+        if (null !== $catalogues) {
+            $qb->andWhere('t.catalogue IN (:catalogues)')->setParameter('catalogues', $catalogues);
         }
 
         if (null !== $key) {

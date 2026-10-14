@@ -194,9 +194,10 @@ final class GenerationCostEstimatorTest extends TestCase
     }
 
     /**
-     * @param array<string, string> $frMessages
-     * @param array<string, string> $frShopMessages
-     * @param array<string, string> $scopeContexts  scope => prompt context
+     * @param array<string, string>                                              $frMessages
+     * @param array<string, string>                                              $frShopMessages
+     * @param array<string, string>                                              $scopeContexts  scope => prompt context
+     * @param (callable(string, string, string): list<TranslationOverride>)|null $overrides      locale, catalogue, scope => its rows
      */
     private function createEstimator(array $frMessages, array $frShopMessages = [], ?callable $overrides = null, array $scopeContexts = [], bool $basicOnly = false): GenerationCostEstimator
     {
@@ -215,7 +216,9 @@ final class GenerationCostEstimatorTest extends TestCase
         $author->method('getAuthorIdentifier')->willReturn(null);
 
         $overrideRepository = $this->createStub(TranslationOverrideRepository::class);
-        $overrideRepository->method('findByLocaleAndCatalogue')->willReturnCallback($overrides ?? static fn (): array => []);
+        $overrideRepository->method('findByLocaleAndCatalogues')->willReturnCallback(static fn (string $locale, array $catalogues, string $scope = ''): array => null !== $overrides
+            ? array_merge(...array_map(static fn (string $catalogue): array => $overrides($locale, $catalogue, $scope), array_values(array_filter($catalogues, is_string(...)))))
+            : []);
 
         $suggestionRepository = $this->createStub(TranslationSuggestionRepository::class);
         $suggestionRepository->method('findPending')->willReturn([]);

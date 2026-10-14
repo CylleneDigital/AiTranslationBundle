@@ -112,20 +112,24 @@ final class TranslationAiServiceTest extends TestCase
             $this->staged[] = $suggestion;
         });
         $this->suggestionRepository->method('findPending')->willReturnCallback(fn (): array => $this->pending);
-        $this->overrideRepository->method('findByLocaleAndCatalogue')->willReturnCallback(fn (string $locale, string $catalogue, string $scope = ''): array => null !== $this->overrides ? ($this->overrides)($locale, $catalogue, $scope) : []);
+        $this->overrideRepository->method('findByLocaleAndCatalogues')->willReturnCallback(fn (string $locale, array $catalogues, string $scope = ''): array => null !== $this->overrides
+            ? array_merge(...array_map(fn (string $catalogue): array => ($this->overrides)($locale, $catalogue, $scope), array_values(array_filter($catalogues, is_string(...)))))
+            : []);
         // The chain read behind the inherited values, served from the same per-test rows.
-        $this->overrideRepository->method('findInheritable')->willReturnCallback(function (array $locales, string $scope, ?string $catalogue = null): array {
+        $this->overrideRepository->method('findInheritable')->willReturnCallback(function (array $locales, string $scope, ?array $catalogues = null): array {
             $rows = [];
             $overrides = $this->overrides;
 
-            if (null === $overrides || null === $catalogue) {
+            if (null === $overrides || null === $catalogues) {
                 return [];
             }
 
-            foreach (array_filter($locales, is_string(...)) as $locale) {
-                foreach (array_unique(['', $scope]) as $candidateScope) {
-                    foreach ($overrides($locale, $catalogue, $candidateScope) as $override) {
-                        $rows[] = ['key' => $override->getKey(), 'catalogue' => $override->getCatalogue(), 'locale' => $override->getLocale(), 'scope' => $override->getScope(), 'value' => (string) $override->getValue()];
+            foreach (array_filter($catalogues, is_string(...)) as $catalogue) {
+                foreach (array_filter($locales, is_string(...)) as $locale) {
+                    foreach (array_unique(['', $scope]) as $candidateScope) {
+                        foreach ($overrides($locale, $catalogue, $candidateScope) as $override) {
+                            $rows[] = ['key' => $override->getKey(), 'catalogue' => $override->getCatalogue(), 'locale' => $override->getLocale(), 'scope' => $override->getScope(), 'value' => (string) $override->getValue()];
+                        }
                     }
                 }
             }
