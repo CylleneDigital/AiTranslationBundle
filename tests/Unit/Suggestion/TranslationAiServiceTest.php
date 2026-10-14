@@ -407,6 +407,56 @@ final class TranslationAiServiceTest extends TestCase
      * A key the reply left out was billed all the same: it must surface as an errored row
      * and the run as a failure — not as a "success" whose gap the next run re-bills.
      */
+    /** An override written for a key while the first batch is with the provider: the second batch leaves it out. */
+    public function testAKeyGivenAValueDuringTheRunIsNotSentInALaterBatch(): void
+    {
+        $messages = [];
+        for ($i = 0; $i < 25; ++$i) {
+            $messages[\sprintf('k%02d', $i)] = \sprintf('V%02d', $i);
+        }
+
+        $written = (new TranslationOverride('k21', 'messages', 'en_US'))->setValue('Written by hand');
+        $service = $this->createService(
+            frMessages: $messages,
+            enMessages: [],
+            pending: [],
+            translator: function (string $text) use ($written): string {
+                $this->overrides = static fn (string $locale): array => 'en_US' === $locale ? [$written] : [];
+
+                return 'T-'.$text;
+            },
+        );
+
+        self::assertSame(24, $service->generateSuggestions('messages', 'en_US', 'fr_FR')->created);
+        self::assertCount(2, $this->providerCalls);
+        self::assertArrayNotHasKey('k21', $this->providerCalls[1]);
+        self::assertArrayNotHasKey('k21', $this->stagedRowsByKey());
+    }
+
+    /** An every-key run sends the keys that have a value: one written during the run is no exception. */
+    public function testAnEveryKeyRunStillSendsAKeyGivenAValueDuringTheRun(): void
+    {
+        $messages = [];
+        for ($i = 0; $i < 25; ++$i) {
+            $messages[\sprintf('k%02d', $i)] = \sprintf('V%02d', $i);
+        }
+
+        $written = (new TranslationOverride('k21', 'messages', 'en_US'))->setValue('Written by hand');
+        $service = $this->createService(
+            frMessages: $messages,
+            enMessages: [],
+            pending: [],
+            translator: function (string $text) use ($written): string {
+                $this->overrides = static fn (string $locale): array => 'en_US' === $locale ? [$written] : [];
+
+                return 'T-'.$text;
+            },
+        );
+
+        self::assertSame(25, $service->generateSuggestions('messages', 'en_US', 'fr_FR', onlyMissing: false)->created);
+        self::assertArrayHasKey('k21', $this->providerCalls[1]);
+    }
+
     public function testAKeyLeftOutOfTheReplyBecomesAnErroredRow(): void
     {
         $service = $this->createService(
