@@ -29,6 +29,9 @@ page name against the code: a rename goes red until the page, and `UPGRADE.md`, 
 - **The Messenger transport `cyllene_ai_translation`**, and the routing of
   `GenerateSuggestionsMessage` to it: what a host's `messenger:consume` and an integration's
   worker configuration name.
+- **The container parameter `cyllene_digital_ai_translation.default_provider`**: the name of
+  the provider a run uses when none is given. It is the `default_provider` key, else the first
+  provider declared under `providers`, else `null` (no bridge declared, custom providers only).
 - **The `cyllene_digital_ai_translation.provider` tag**, autoconfigured from
   `TranslationAiProviderInterface`: how a [custom provider](provider_bridge/custom.md) becomes
   selectable by name.
@@ -122,7 +125,7 @@ thing: an interface can be decorated, these classes are `final`.
 
 | Service | Methods and constants |
 |---|---|
-| `Override\OverrideReader` | `getBaselineValue()`, `getFileValue()` |
+| `Override\OverrideReader` | `getBaselineValue()`, `getInheritedValue()`, `getFileValue()` |
 | `Override\TranslationValueValidator` | `validate()` |
 | `Repository\TranslationSuggestionRepository` | `find()`, `findBy()`, `countPendingFiltered()`, `createPendingQueryBuilder()` |
 | `Transfer\OverrideExporter` | `supports()`, `FORMATS`, `FORMAT_CSV`, `FORMAT_XLIFF` |
@@ -137,6 +140,37 @@ thing: an interface can be decorated, these classes are `final`.
 `createPendingQueryBuilder()` returns an open query builder for a caller to filter, sort and
 paginate: its root alias `o` and the field names of `TranslationSuggestion` are what such a
 caller relies on.
+
+## What a generation run guarantees
+
+A generation calls a paid API. These behaviours keep a run from billing the same keys twice,
+and only change in a major version:
+
+- **One run at a time per (catalogue, target locale, scope).** A second run started while one
+  holds the lock is skipped: `GenerationOutcome::$completed` is `false`, and nothing is sent.
+  The lock goes through `symfony/lock`, held where the host's lock store is: a store local to
+  one machine does not guard workers on several machines
+  ([Running on several servers](operations/multi-server.md)). When the store cannot be
+  reached, the run proceeds unguarded and a warning is logged.
+- **A key that has a pending suggestion is not sent**, an errored one included, unless the run
+  retries errors.
+- **The keys of a batch are reserved before the provider is called**: stored as errored
+  suggestions carrying `metadata.in_flight`. A run killed during the call leaves them so, and
+  the run that starts again (a redelivered message, a relaunched command) does not send them.
+- **A run that retries errors** sends the keys of the errored suggestions, except those
+  reserved after `GenerateSuggestionsMessage::$dispatchedAt`: the ones its own run reserved
+  before it was interrupted.
+- **In `onlyMissing` mode**, a key given a value since the run started is left out of the
+  batches that follow, neither reserved nor sent.
+- **A failed run is never retried by Messenger**: the handler marks every failure
+  unrecoverable, whatever the transport, and the bundle's transport retries nothing. An
+  HTTP request is only retried on a response saying the provider did not process it.
+- **A suggestion reviewed while its batch is with the provider** keeps that decision: neither
+  the reply nor a failure writes on it.
+
+Two concurrent runs a lock store does not guard can both call the provider. The database still
+holds one pending suggestion per key: the run that reserves a key the other holds fails before
+paying for that batch.
 
 ## What is not covered
 
