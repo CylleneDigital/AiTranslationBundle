@@ -53,7 +53,9 @@ triggered by the [interactive console](../operations/commands.md)'s generation e
    hallucinated key (absent from the request) is discarded. Before each call, the keys of
    the batch are **reserved**: stored as errored rows marked in flight, so that a run killed
    during the call never re-sends them on its own (see
-   [Interrupted runs](#interrupted-runs)).
+   [Interrupted runs](#interrupted-runs)). In `onlyMissing` mode, the keys of every batch
+   after the first are checked again first: one given a value since the run started (an
+   override written meanwhile) is left out, neither reserved nor sent (logged as `info`).
 4. **Storage**: the reserved rows are filled from the reply, re-read in the database and
    locked: a row reviewed meanwhile (filled by hand and approved, closed by an override written
    for its key, rejected) stays as it was left, and its paid translation is dropped (logged as

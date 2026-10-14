@@ -196,7 +196,22 @@ final class SuggestionGenerator
 
             try {
                 try {
+                    $selectedNow = true;
+
                     foreach ($this->chunkTexts($texts) as $chunk) {
+                        // The selection was made when the run started: a key given a value
+                        // since — an override written while the earlier batches were with the
+                        // provider — is nobody's request any more. Read again before every
+                        // batch but the first, which the selection has just read.
+                        if ($onlyMissing && !$retryErrors && !$selectedNow) {
+                            $chunk = $this->leaveOutDelivered($chunk, $done, $catalogue, $targetLocale, $scope);
+                        }
+                        $selectedNow = false;
+
+                        if ([] === $chunk) {
+                            continue;
+                        }
+
                         $chunk = $this->reserve($chunk, $done, $new, $errored, $catalogue, $targetLocale, $sourceLocale, $provider->getName(), $scope, $onlyMissing);
 
                         if ([] === $chunk) {
@@ -267,6 +282,33 @@ final class SuggestionGenerator
     }
 
     /**
+     * The keys of a batch still missing in the target locale, read again: the effective
+     * value the selection uses (the key's own override, else the inherited one, else the
+     * file). A key with a value now is left out of the batch, neither reserved nor sent.
+     *
+     * @param array<string, string> $chunk
+     * @param array<string, true>   $done
+     *
+     * @return array<string, string>
+     */
+    private function leaveOutDelivered(array $chunk, array &$done, string $catalogue, string $targetLocale, string $scope): array
+    {
+        $target = $this->overrides->getTranslationsForCatalogue($catalogue, $targetLocale, $scope);
+
+        foreach ($chunk as $key => $sourceValue) {
+            $key = (string) $key;
+
+            if ($this->hasTargetValue($target[$key] ?? null)) {
+                unset($chunk[$key]);
+                $done[$key] = true;
+                $this->logLeftOut('AI translation key left out of its batch: it was given a value since the run started.', $catalogue, $targetLocale, $scope, $key);
+            }
+        }
+
+        return $chunk;
+    }
+
+    /**
      * Stores the keys of a batch as errored rows marked in flight, before the provider is
      * called, and returns the keys still to send. A key whose previous run failed has that
      * row reserved instead of a new one, keeping the mode of the run that first failed on
@@ -295,7 +337,7 @@ final class SuggestionGenerator
                 if (isset($errored[$key]) && !isset($stillErrored[$key])) {
                     unset($chunk[$key]);
                     $done[$key] = true;
-                    $this->logReviewedMeanwhile('AI translation key left out of its batch: its errored suggestion was reviewed since the run started.', $catalogue, $targetLocale, $scope, $key);
+                    $this->logLeftOut('AI translation key left out of its batch: its errored suggestion was reviewed since the run started.', $catalogue, $targetLocale, $scope, $key);
 
                     continue;
                 }
@@ -337,7 +379,7 @@ final class SuggestionGenerator
         return $pending;
     }
 
-    private function logReviewedMeanwhile(string $message, string $catalogue, string $targetLocale, string $scope, string $key): void
+    private function logLeftOut(string $message, string $catalogue, string $targetLocale, string $scope, string $key): void
     {
         $this->logger->info($message, [
             'catalogue' => $catalogue,
@@ -368,7 +410,7 @@ final class SuggestionGenerator
 
         foreach (array_diff_key($chunk, $reserved) as $key => $sourceValue) {
             $done[(string) $key] = true;
-            $this->logReviewedMeanwhile('AI translation reply dropped: the key was reviewed while its batch was with the provider.', $catalogue, $targetLocale, $scope, (string) $key);
+            $this->logLeftOut('AI translation reply dropped: the key was reviewed while its batch was with the provider.', $catalogue, $targetLocale, $scope, (string) $key);
         }
 
         $created = 0;
@@ -460,7 +502,7 @@ final class SuggestionGenerator
                 if (isset($stillErrored[$key])) {
                     $this->recordFailure($stillErrored[$key], $error, $providerName, $sourceValue);
                 } elseif (isset($errored[$key])) {
-                    $this->logReviewedMeanwhile('AI translation failure not recorded: the errored suggestion was reviewed while the run went on.', $catalogue, $targetLocale, $scope, $key);
+                    $this->logLeftOut('AI translation failure not recorded: the errored suggestion was reviewed while the run went on.', $catalogue, $targetLocale, $scope, $key);
                 } else {
                     $failed = $new[] = TranslationSuggestion::failed($key, $catalogue, $targetLocale, $sourceValue, $sourceLocale, $providerName, $error, $scope);
                     $failed->setMetadata([self::ONLY_MISSING => $onlyMissing]);
