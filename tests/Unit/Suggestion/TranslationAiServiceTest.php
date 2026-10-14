@@ -83,6 +83,12 @@ final class TranslationAiServiceTest extends TestCase
     /** @var (\Closure(string, string, string): list<TranslationOverride>)|null */
     private ?\Closure $overrides = null;
 
+    /** @var list<TranslationSuggestion> every suggestion staged, once per saveDeferred() call */
+    private array $staged = [];
+
+    /** @var list<TranslationSuggestion> the suggestions another process reviewed meanwhile: lockStillPending() no longer returns them */
+    private array $closedMeanwhile = [];
+
     /** @var list<array<array-key, string>> the chunks the stub provider received (numeric keys become ints) */
     private array $providerCalls = [];
 
@@ -96,7 +102,15 @@ final class TranslationAiServiceTest extends TestCase
         // The database side of a review, as a real repository behaves on fresh rows: the
         // transaction runs its operation, every suggestion is still pending.
         $this->suggestionRepository->method('transactional')->willReturnCallback(static fn (callable $operation): mixed => $operation());
-        $this->suggestionRepository->method('lockStillPending')->willReturnArgument(0);
+        $this->suggestionRepository->method('lockStillPending')->willReturnCallback(fn (array $suggestions): array => array_values(array_filter(
+            $suggestions,
+            fn (mixed $suggestion): bool => !\in_array($suggestion, $this->closedMeanwhile, true),
+        )));
+        $this->staged = [];
+        $this->closedMeanwhile = [];
+        $this->suggestionRepository->method('saveDeferred')->willReturnCallback(function (TranslationSuggestion $suggestion): void {
+            $this->staged[] = $suggestion;
+        });
         $this->suggestionRepository->method('findPending')->willReturnCallback(fn (): array => $this->pending);
         $this->overrideRepository->method('findByLocaleAndCatalogue')->willReturnCallback(fn (string $locale, string $catalogue, string $scope = ''): array => null !== $this->overrides ? ($this->overrides)($locale, $catalogue, $scope) : []);
         // The chain read behind the inherited values, served from the same per-test rows.
@@ -140,6 +154,37 @@ final class TranslationAiServiceTest extends TestCase
         }
     }
 
+    /**
+     * The suggestions staged, each once: a row is staged when it is reserved before the
+     * provider call, then again when it is filled or fails.
+     *
+     * @return list<TranslationSuggestion>
+     */
+    private function stagedRows(): array
+    {
+        $rows = [];
+
+        foreach ($this->staged as $suggestion) {
+            if (!\in_array($suggestion, $rows, true)) {
+                $rows[] = $suggestion;
+            }
+        }
+
+        return $rows;
+    }
+
+    /** @return array<string, TranslationSuggestion> */
+    private function stagedRowsByKey(): array
+    {
+        $rows = [];
+
+        foreach ($this->stagedRows() as $suggestion) {
+            $rows[$suggestion->getKey()] = $suggestion;
+        }
+
+        return $rows;
+    }
+
     protected function tearDown(): void
     {
         (new Filesystem())->remove($this->translationsDirs);
@@ -155,27 +200,17 @@ final class TranslationAiServiceTest extends TestCase
             pending: [new TranslationSuggestion('b', 'messages', 'en_US', 'x', 'Beta', 'fr_FR', 'stub', 0.9)],
         );
 
-        $saved = [];
-        $this->suggestionRepository
-            ->method('saveDeferred')
-            ->willReturnCallback(static function (TranslationSuggestion $suggestion) use (&$saved): void {
-                // A row is staged twice: reserved before the provider call, then filled.
-                if (!\in_array($suggestion, $saved, true)) {
-                    $saved[] = $suggestion;
-                }
-            });
-
         $created = $service->generateSuggestions('messages', 'en_US', 'fr_FR')->created;
 
         self::assertSame(1, $created);
-        self::assertCount(1, $saved);
-        self::assertSame('d', $saved[0]->getKey());
-        self::assertSame('T-Delta', $saved[0]->getSuggestedValue());
-        self::assertSame('Delta', $saved[0]->getSourceValue());
-        self::assertSame('fr_FR', $saved[0]->getSourceLocale());
-        self::assertSame('en_US', $saved[0]->getLocale());
-        self::assertSame('stub', $saved[0]->getProvider());
-        self::assertTrue($saved[0]->isPending());
+        self::assertCount(1, $this->stagedRows());
+        self::assertSame('d', $this->stagedRows()[0]->getKey());
+        self::assertSame('T-Delta', $this->stagedRows()[0]->getSuggestedValue());
+        self::assertSame('Delta', $this->stagedRows()[0]->getSourceValue());
+        self::assertSame('fr_FR', $this->stagedRows()[0]->getSourceLocale());
+        self::assertSame('en_US', $this->stagedRows()[0]->getLocale());
+        self::assertSame('stub', $this->stagedRows()[0]->getProvider());
+        self::assertTrue($this->stagedRows()[0]->isPending());
     }
 
     public function testBatchesAreCappedByItemCountAndByCumulativeLength(): void
@@ -256,26 +291,16 @@ final class TranslationAiServiceTest extends TestCase
             providerFailure: TranslationProviderException::requestFailed('stub', 'quota exceeded'),
         );
 
-        $saved = [];
-        $this->suggestionRepository
-            ->method('saveDeferred')
-            ->willReturnCallback(static function (TranslationSuggestion $suggestion) use (&$saved): void {
-                // A row is staged twice: reserved before the provider call, then filled.
-                if (!\in_array($suggestion, $saved, true)) {
-                    $saved[] = $suggestion;
-                }
-            });
-
         try {
             $service->generateSuggestions('messages', 'en_US', 'fr_FR');
             self::fail('The provider exception must be rethrown.');
         } catch (TranslationProviderException) {
         }
 
-        self::assertCount(2, $saved);
-        self::assertSame(['a', 'b'], array_map(static fn (TranslationSuggestion $s): string => $s->getKey(), $saved));
+        self::assertCount(2, $this->stagedRows());
+        self::assertSame(['a', 'b'], array_map(static fn (TranslationSuggestion $s): string => $s->getKey(), $this->stagedRows()));
 
-        foreach ($saved as $suggestion) {
+        foreach ($this->stagedRows() as $suggestion) {
             self::assertNull($suggestion->getSuggestedValue());
             self::assertSame(0.0, $suggestion->getConfidence());
             self::assertSame('stub', $suggestion->getProvider());
@@ -285,7 +310,7 @@ final class TranslationAiServiceTest extends TestCase
             self::assertSame(['only_missing' => true], $suggestion->getMetadata(), 'The mode of the run that failed, for the retry.');
         }
 
-        self::assertSame('Alpha', $saved[0]->getSourceValue());
+        self::assertSame('Alpha', $this->stagedRows()[0]->getSourceValue());
     }
 
     public function testAFailedEveryKeyRunRecordsItsModeOnTheErroredRows(): void
@@ -297,24 +322,14 @@ final class TranslationAiServiceTest extends TestCase
             providerFailure: TranslationProviderException::requestFailed('stub', 'quota exceeded'),
         );
 
-        $saved = [];
-        $this->suggestionRepository
-            ->method('saveDeferred')
-            ->willReturnCallback(static function (TranslationSuggestion $suggestion) use (&$saved): void {
-                // A row is staged twice: reserved before the provider call, then filled.
-                if (!\in_array($suggestion, $saved, true)) {
-                    $saved[] = $suggestion;
-                }
-            });
-
         try {
             $service->generateSuggestions('messages', 'en_US', 'fr_FR', onlyMissing: false);
             self::fail('The provider exception must be rethrown.');
         } catch (TranslationProviderException) {
         }
 
-        self::assertCount(1, $saved);
-        self::assertSame(['only_missing' => false], $saved[0]->getMetadata());
+        self::assertCount(1, $this->stagedRows());
+        self::assertSame(['only_missing' => false], $this->stagedRows()[0]->getMetadata());
     }
 
     /**
@@ -330,18 +345,8 @@ final class TranslationAiServiceTest extends TestCase
             pending: [],
         );
 
-        $saved = [];
-        $this->suggestionRepository
-            ->method('saveDeferred')
-            ->willReturnCallback(static function (TranslationSuggestion $suggestion) use (&$saved): void {
-                // A row is staged twice: reserved before the provider call, then filled.
-                if (!\in_array($suggestion, $saved, true)) {
-                    $saved[] = $suggestion;
-                }
-            });
-
         self::assertSame(2, $service->generateSuggestions('messages', 'en_US', 'fr_FR')->created);
-        self::assertEqualsCanonicalizing(['404', '0'], array_map(static fn (TranslationSuggestion $s): string => $s->getKey(), $saved));
+        self::assertEqualsCanonicalizing(['404', '0'], array_map(static fn (TranslationSuggestion $s): string => $s->getKey(), $this->stagedRows()));
     }
 
     public function testNumericKeysBecomeErroredRowsOnAProviderFailure(): void
@@ -354,25 +359,15 @@ final class TranslationAiServiceTest extends TestCase
             providerFailure: TranslationProviderException::requestFailed('stub', 'quota exceeded'),
         );
 
-        $saved = [];
-        $this->suggestionRepository
-            ->method('saveDeferred')
-            ->willReturnCallback(static function (TranslationSuggestion $suggestion) use (&$saved): void {
-                // A row is staged twice: reserved before the provider call, then filled.
-                if (!\in_array($suggestion, $saved, true)) {
-                    $saved[] = $suggestion;
-                }
-            });
-
         try {
             $service->generateSuggestions('messages', 'en_US', 'fr_FR');
             self::fail('The provider exception must be rethrown.');
         } catch (TranslationProviderException) {
         }
 
-        self::assertCount(1, $saved);
-        self::assertSame('404', $saved[0]->getKey());
-        self::assertTrue($saved[0]->hasGenerationError());
+        self::assertCount(1, $this->stagedRows());
+        self::assertSame('404', $this->stagedRows()[0]->getKey());
+        self::assertTrue($this->stagedRows()[0]->hasGenerationError());
     }
 
     /**
@@ -394,13 +389,6 @@ final class TranslationAiServiceTest extends TestCase
             translator: static fn (string $text): string => $text < 'V20' ? throw TranslationProviderException::invalidResponse('stub', 'not JSON') : 'T-'.$text,
         );
 
-        $saved = [];
-        $this->suggestionRepository
-            ->method('saveDeferred')
-            ->willReturnCallback(static function (TranslationSuggestion $suggestion) use (&$saved): void {
-                $saved[$suggestion->getKey()] = $suggestion;
-            });
-
         try {
             $service->generateSuggestions('messages', 'en_US', 'fr_FR');
             self::fail('The invalid reply must still fail the run.');
@@ -409,10 +397,10 @@ final class TranslationAiServiceTest extends TestCase
         }
 
         self::assertCount(2, $this->providerCalls);
-        self::assertCount(25, $saved);
-        self::assertTrue($saved['k00']->hasGenerationError());
-        self::assertFalse($saved['k20']->hasGenerationError());
-        self::assertSame('T-V24', $saved['k24']->getSuggestedValue());
+        self::assertCount(25, $this->stagedRowsByKey());
+        self::assertTrue($this->stagedRowsByKey()['k00']->hasGenerationError());
+        self::assertFalse($this->stagedRowsByKey()['k20']->hasGenerationError());
+        self::assertSame('T-V24', $this->stagedRowsByKey()['k24']->getSuggestedValue());
     }
 
     /**
@@ -428,13 +416,6 @@ final class TranslationAiServiceTest extends TestCase
             translator: static fn (string $text): string => 'Beta' === $text ? '' : 'T-'.$text,
         );
 
-        $saved = [];
-        $this->suggestionRepository
-            ->method('saveDeferred')
-            ->willReturnCallback(static function (TranslationSuggestion $suggestion) use (&$saved): void {
-                $saved[$suggestion->getKey()] = $suggestion;
-            });
-
         try {
             $service->generateSuggestions('messages', 'en_US', 'fr_FR');
             self::fail('A partial reply must fail the run.');
@@ -442,8 +423,8 @@ final class TranslationAiServiceTest extends TestCase
             self::assertStringContainsString('left out 1 of the 2', $e->getMessage());
         }
 
-        self::assertSame('T-Alpha', $saved['a']->getSuggestedValue());
-        self::assertTrue($saved['b']->hasGenerationError());
+        self::assertSame('T-Alpha', $this->stagedRowsByKey()['a']->getSuggestedValue());
+        self::assertTrue($this->stagedRowsByKey()['b']->hasGenerationError());
         self::assertTrue($this->recordedLogs[0]->isFailure());
     }
 
@@ -474,18 +455,9 @@ final class TranslationAiServiceTest extends TestCase
 
         $service = $this->createService(frMessages: $messages, enMessages: [], pending: []);
 
-        $saved = [];
-        $this->suggestionRepository
-            ->method('saveDeferred')
-            ->willReturnCallback(static function (TranslationSuggestion $suggestion) use (&$saved): void {
-                if (!\in_array($suggestion->getKey(), $saved, true)) {
-                    $saved[] = $suggestion->getKey();
-                }
-            });
-
         self::assertSame(SuggestionGenerator::MAX_KEYS_PER_RUN, $service->generateSuggestions('messages', 'en_US', 'fr_FR')->created);
-        self::assertCount(SuggestionGenerator::MAX_KEYS_PER_RUN, $saved);
-        self::assertCount(1, array_diff(array_keys($messages), $saved), 'The key beyond the cap is left for a later run.');
+        self::assertCount(SuggestionGenerator::MAX_KEYS_PER_RUN, array_map(static fn (TranslationSuggestion $s): string => $s->getKey(), $this->stagedRows()));
+        self::assertCount(1, array_diff(array_keys($messages), array_map(static fn (TranslationSuggestion $s): string => $s->getKey(), $this->stagedRows())), 'The key beyond the cap is left for a later run.');
     }
 
     /** A key the override table cannot store could never be approved: it is not paid for. */
@@ -571,19 +543,10 @@ final class TranslationAiServiceTest extends TestCase
         self::assertSame([], $this->providerCalls);
 
         // Retry run: "b" is re-sent and its errored row is refilled — not duplicated.
-        $saved = [];
-        $this->suggestionRepository
-            ->method('saveDeferred')
-            ->willReturnCallback(static function (TranslationSuggestion $suggestion) use (&$saved): void {
-                // A row is staged twice: reserved before the provider call, then filled.
-                if (!\in_array($suggestion, $saved, true)) {
-                    $saved[] = $suggestion;
-                }
-            });
 
         self::assertSame(1, $makeService()->generateSuggestions('messages', 'en_US', 'fr_FR', retryErrors: true)->created);
         self::assertSame([['b' => 'Beta']], $this->providerCalls);
-        self::assertSame([$errored], $saved);
+        self::assertSame([$errored], $this->stagedRows());
         self::assertSame('T-Beta', $errored->getSuggestedValue());
         self::assertSame(0.9, $errored->getConfidence());
         self::assertFalse($errored->hasGenerationError());
@@ -700,10 +663,6 @@ final class TranslationAiServiceTest extends TestCase
         );
 
         $this->suggestionRepository->method('isOpen')->willReturn(true);
-        $saved = [];
-        $this->suggestionRepository->method('saveDeferred')->willReturnCallback(static function (TranslationSuggestion $suggestion) use (&$saved): void {
-            $saved[$suggestion->getKey()] = $suggestion;
-        });
 
         try {
             $service->generateSuggestions('messages', 'en_US', 'fr_FR');
@@ -717,10 +676,10 @@ final class TranslationAiServiceTest extends TestCase
         self::assertSame(20, $this->recordedLogs[0]->getSuggestionsCreated(), 'The paid batch is counted.');
         self::assertStringContainsString('custom provider bug', (string) $this->recordedLogs[0]->getErrorMessage());
 
-        self::assertCount(25, $saved);
-        self::assertFalse($saved['k01']->hasGenerationError());
-        self::assertTrue($saved['k21']->hasGenerationError(), 'The keys never sent become errored rows a retry can refill.');
-        self::assertTrue($saved['k25']->hasGenerationError());
+        self::assertCount(25, $this->stagedRowsByKey());
+        self::assertFalse($this->stagedRowsByKey()['k01']->hasGenerationError());
+        self::assertTrue($this->stagedRowsByKey()['k21']->hasGenerationError(), 'The keys never sent become errored rows a retry can refill.');
+        self::assertTrue($this->stagedRowsByKey()['k25']->hasGenerationError());
     }
 
     /** With the entity manager closed (a failed flush), nothing more can be written: the failure goes out as is. */
@@ -734,8 +693,6 @@ final class TranslationAiServiceTest extends TestCase
         );
 
         $this->suggestionRepository->method('isOpen')->willReturn(false);
-        // The reservation before the provider call, and nothing after the failure.
-        $this->suggestionRepository->expects(self::once())->method('saveDeferred');
 
         $this->expectExceptionMessage('database gone');
 
@@ -743,7 +700,73 @@ final class TranslationAiServiceTest extends TestCase
             $service->generateSuggestions('messages', 'en_US', 'fr_FR');
         } finally {
             self::assertSame([], $this->recordedLogs);
+            self::assertCount(1, $this->staged, 'The reservation before the provider call, and nothing after the failure.');
         }
+    }
+
+    public function testARowIsStagedTwiceReservedBeforeTheCallThenFilled(): void
+    {
+        $atCall = [];
+        $service = $this->createService(
+            frMessages: ['a' => 'Alpha'],
+            enMessages: [],
+            pending: [],
+            translator: function (string $text) use (&$atCall): string {
+                $row = $this->staged[0] ?? self::fail('Nothing was reserved before the call.');
+                $atCall = [$row->getGenerationError(), $row->getMetadata()];
+
+                return 'T-'.$text;
+            },
+        );
+
+        $service->generateSuggestions('messages', 'en_US', 'fr_FR');
+
+        self::assertCount(2, $this->staged);
+        self::assertSame($this->staged[0], $this->staged[1]);
+        self::assertSame(SuggestionGenerator::INTERRUPTED, $atCall[0]);
+        self::assertIsArray($atCall[1]);
+        self::assertArrayHasKey(SuggestionGenerator::IN_FLIGHT, $atCall[1]);
+        self::assertSame('T-Alpha', $this->staged[1]->getSuggestedValue());
+        self::assertFalse($this->staged[1]->hasGenerationError());
+    }
+
+    /** Reviewed by someone since the run loaded it: the retry neither sends its key nor writes on it. */
+    public function testARetryLeavesOutAnErroredRowReviewedBeforeItsBatchIsReserved(): void
+    {
+        $errored = TranslationSuggestion::failed('b', 'messages', 'en_US', 'Beta', 'fr_FR', 'stub', 'boom');
+        $service = $this->createService(frMessages: ['b' => 'Beta'], enMessages: [], pending: [$errored]);
+        $this->closedMeanwhile = [$errored];
+
+        $service->generateSuggestions('messages', 'en_US', 'fr_FR', retryErrors: true);
+
+        self::assertSame([], $this->providerCalls);
+        self::assertSame([], $this->staged);
+        self::assertSame('boom', $errored->getGenerationError());
+        self::assertNull($errored->getMetadata());
+    }
+
+    /** Reviewed by someone while the provider was called: the failure is not written on it. */
+    public function testAProviderFailureLeavesARowReviewedDuringTheCallAlone(): void
+    {
+        $service = $this->createService(
+            frMessages: ['a' => 'Alpha'],
+            enMessages: [],
+            pending: [],
+            translator: function (): string {
+                $this->closedMeanwhile = $this->staged;
+
+                throw TranslationProviderException::requestFailed('stub', 'HTTP 401');
+            },
+        );
+
+        try {
+            $service->generateSuggestions('messages', 'en_US', 'fr_FR');
+            self::fail('The provider exception must be rethrown.');
+        } catch (TranslationProviderException) {
+        }
+
+        self::assertCount(1, $this->staged, 'Reserved, and nothing written after the failure.');
+        self::assertSame(SuggestionGenerator::INTERRUPTED, $this->staged[0]->getGenerationError());
     }
 
     public function testARepeatedFailureRefreshesTheErroredRowInsteadOfDuplicatingIt(): void
@@ -756,23 +779,13 @@ final class TranslationAiServiceTest extends TestCase
             providerFailure: TranslationProviderException::requestFailed('stub', 'still down'),
         );
 
-        $saved = [];
-        $this->suggestionRepository
-            ->method('saveDeferred')
-            ->willReturnCallback(static function (TranslationSuggestion $suggestion) use (&$saved): void {
-                // A row is staged twice: reserved before the provider call, then filled.
-                if (!\in_array($suggestion, $saved, true)) {
-                    $saved[] = $suggestion;
-                }
-            });
-
         try {
             $service->generateSuggestions('messages', 'en_US', 'fr_FR', retryErrors: true);
             self::fail('The provider exception must be rethrown.');
         } catch (TranslationProviderException) {
         }
 
-        self::assertSame([$errored], $saved);
+        self::assertSame([$errored], $this->stagedRows());
         self::assertStringContainsString('still down', (string) $errored->getGenerationError());
     }
 
@@ -842,20 +855,10 @@ final class TranslationAiServiceTest extends TestCase
             translator: static fn (string $text): string => str_replace('%name%', 'name', 'T-'.$text),
         );
 
-        $saved = [];
-        $this->suggestionRepository
-            ->method('saveDeferred')
-            ->willReturnCallback(static function (TranslationSuggestion $suggestion) use (&$saved): void {
-                // A row is staged twice: reserved before the provider call, then filled.
-                if (!\in_array($suggestion, $saved, true)) {
-                    $saved[] = $suggestion;
-                }
-            });
-
         $service->generateSuggestions('messages', 'en_US', 'fr_FR');
 
-        self::assertCount(1, $saved);
-        self::assertSame(['%name%'], $saved[0]->getMetadata()['placeholder_mismatch'] ?? null);
+        self::assertCount(1, $this->stagedRows());
+        self::assertSame(['%name%'], $this->stagedRows()[0]->getMetadata()['placeholder_mismatch'] ?? null);
     }
 
     public function testApproveStoresAnOverrideMarksTheSuggestionAndDispatchesEvents(): void
@@ -975,20 +978,10 @@ final class TranslationAiServiceTest extends TestCase
             translator: static fn (string $text): string => '{count, plural, other {'.$text.'}}',
         );
 
-        $saved = [];
-        $this->suggestionRepository
-            ->method('saveDeferred')
-            ->willReturnCallback(static function (TranslationSuggestion $suggestion) use (&$saved): void {
-                // A row is staged twice: reserved before the provider call, then filled.
-                if (!\in_array($suggestion, $saved, true)) {
-                    $saved[] = $suggestion;
-                }
-            });
-
         $service->generateSuggestions('messages', 'en_US', 'fr_FR');
 
-        self::assertCount(1, $saved);
-        self::assertSame([TranslationValueValidator::ISSUE_ICU_IN_LEGACY], $saved[0]->getMetadata()['syntax_issues'] ?? null);
+        self::assertCount(1, $this->stagedRows());
+        self::assertSame([TranslationValueValidator::ISSUE_ICU_IN_LEGACY], $this->stagedRows()[0]->getMetadata()['syntax_issues'] ?? null);
     }
 
     public function testApproveRefusesAValueThatLosesPlaceholders(): void
@@ -1022,24 +1015,14 @@ final class TranslationAiServiceTest extends TestCase
             },
         );
 
-        $saved = [];
-        $this->suggestionRepository
-            ->method('saveDeferred')
-            ->willReturnCallback(static function (TranslationSuggestion $suggestion) use (&$saved): void {
-                // A row is staged twice: reserved before the provider call, then filled.
-                if (!\in_array($suggestion, $saved, true)) {
-                    $saved[] = $suggestion;
-                }
-            });
-
         $created = $service->generateSuggestions('messages', 'en_US', 'fr_FR', scope: 'b2b')->created;
 
         self::assertSame(1, $created);
-        self::assertCount(1, $saved);
-        self::assertSame('c', $saved[0]->getKey());
-        self::assertSame('Gamma B2B', $saved[0]->getSourceValue());
-        self::assertSame('T-Gamma B2B', $saved[0]->getSuggestedValue());
-        self::assertSame('b2b', $saved[0]->getScope());
+        self::assertCount(1, $this->stagedRows());
+        self::assertSame('c', $this->stagedRows()[0]->getKey());
+        self::assertSame('Gamma B2B', $this->stagedRows()[0]->getSourceValue());
+        self::assertSame('T-Gamma B2B', $this->stagedRows()[0]->getSuggestedValue());
+        self::assertSame('b2b', $this->stagedRows()[0]->getScope());
         self::assertSame('b2b', $this->recordedLogs[0]->getScope());
     }
 

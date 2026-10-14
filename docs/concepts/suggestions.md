@@ -55,8 +55,9 @@ triggered by the [interactive console](../operations/commands.md)'s generation e
    during the call never re-sends them on its own (see
    [Interrupted runs](#interrupted-runs)).
 4. **Storage**: the reserved rows are filled from the reply, re-read in the database and
-   locked: a row closed meanwhile (an override written for its key, a rejection) stays closed,
-   and its paid translation is dropped (logged as `info`). One `pending` suggestion per translated key, with the source value, the
+   locked: a row reviewed meanwhile (filled by hand and approved, closed by an override written
+   for its key, rejected) stays as it was left, and its paid translation is dropped (logged as
+   `info`). A failure is recorded the same way, on the rows still pending only. One `pending` suggestion per translated key, with the source value, the
    source locale, the provider name, the **confidence** and the raw metadata (model, token
    usage of the call: `batch_usage`, with `batch_size` and `batch_id`, the same on every
    suggestion of a provider call; see [Token usage](#token-usage)) for the reviewer (a failed run stores **errored** rows instead, see below). The
@@ -181,7 +182,8 @@ killed.
 
 While a batch is with the provider, its reserved rows are pending suggestions with no value,
 in the review queue like the other errored rows; an integration that hides them filters on
-`metadata.in_flight`. The journal has no entry for an interrupted run: the rows are its trace.
+`metadata.in_flight`. A reviewer who fills one by hand and approves it keeps that decision:
+neither the reply nor a failure of the call writes on an approved row. The journal has no entry for an interrupted run: the rows are its trace.
 
 ### Token usage
 

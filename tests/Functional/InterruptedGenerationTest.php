@@ -8,6 +8,9 @@ use CylleneDigital\AiTranslationBundle\Entity\TranslationSuggestion;
 use CylleneDigital\AiTranslationBundle\Message\GenerateSuggestionsMessage;
 use CylleneDigital\AiTranslationBundle\Message\GenerateSuggestionsMessageHandler;
 use CylleneDigital\AiTranslationBundle\Suggestion\SuggestionGenerator;
+use Symfony\Component\HttpClient\MockHttpClient;
+use Symfony\Component\HttpClient\Response\MockResponse;
+use Symfony\Component\Messenger\Exception\UnrecoverableExceptionInterface;
 
 /**
  * A run killed while the provider is called (a worker's OOM, a SIGKILL at a deployment)
@@ -92,6 +95,53 @@ final class InterruptedGenerationTest extends DatabaseTestCase
 
         self::assertSame(0, $this->fetchInt("SELECT COUNT(*) FROM cyllene_translation_suggestion WHERE translation_key = 'app.dashboard'"));
         self::assertSame('FR Welcome to the shop', $this->suggestion('app.welcome')->getSuggestedValue());
+    }
+
+    public function testAKeyApprovedWhileItsBatchIsWithTheProviderKeepsItsApproval(): void
+    {
+        $this->answerProviderCallsInFrench(function (): void {
+            $this->approveByHand('app.welcome');
+        });
+
+        $this->handler()(new GenerateSuggestionsMessage('messages', 'fr', 'en'));
+
+        $this->assertApprovedByHand($this->suggestion('app.welcome'));
+    }
+
+    /** The provider fails after someone approved the reserved row: the failure is not written on it. */
+    public function testAProviderFailureLeavesAKeyApprovedDuringTheCallAlone(): void
+    {
+        self::getContainer()->set('http_client', new MockHttpClient(function (): MockResponse {
+            $this->approveByHand('app.welcome');
+
+            return new MockResponse('{"error": "invalid key"}', ['http_code' => 401]);
+        }));
+
+        try {
+            $this->handler()(new GenerateSuggestionsMessage('messages', 'fr', 'en'));
+            self::fail('The provider failure was expected to be reported.');
+        } catch (UnrecoverableExceptionInterface) {
+        }
+
+        $this->assertApprovedByHand($this->suggestion('app.welcome'));
+    }
+
+    /** What another process does meanwhile: a reviewer fills the reserved row by hand and approves it. */
+    private function approveByHand(string $key): void
+    {
+        $this->entityManager()->getConnection()->executeStatement(
+            "UPDATE cyllene_translation_suggestion SET status = 'approved', pending_key = NULL, suggested_value = 'Bienvenue', generation_error = NULL, confidence = 1, metadata = ?, reviewed_by = 'reviewer' WHERE translation_key = ?",
+            ['{"override_change":"write","edited_on_approve":true}', $key],
+        );
+    }
+
+    private function assertApprovedByHand(TranslationSuggestion $suggestion): void
+    {
+        self::assertTrue($suggestion->isApproved());
+        self::assertSame('Bienvenue', $suggestion->getSuggestedValue());
+        self::assertNull($suggestion->getGenerationError());
+        self::assertSame(1.0, $suggestion->getConfidence());
+        self::assertSame(['override_change' => 'write', 'edited_on_approve' => true], $suggestion->getMetadata());
     }
 
     /** What a run killed during its provider call leaves: the reserved row, still in flight. */

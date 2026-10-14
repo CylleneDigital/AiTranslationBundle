@@ -56,10 +56,11 @@ method name is fine, a rename supersedes nothing), this file does.
   discard what was paid for), and the rows it creates are detached once it is over
   ([0006](docs/adr/0006-no-retry-that-can-bill-twice.md),
   [0007](docs/adr/0007-paid-results-committed-chunk-by-chunk.md)). The keys of a chunk are
-  reserved before the provider is called (errored rows, `metadata.in_flight`, flushed) and
-  filled from the reply under `lockStillPending()`: a run killed during the call (a
-  redelivered message, a relaunched cron) skips them instead of re-billing them, and a retry
-  leaves out the rows reserved after its `GenerateSuggestionsMessage::$dispatchedAt`
+  reserved before the provider is called (errored rows, `metadata.in_flight`, flushed); every
+  later write on a reserved or errored row - the reply, a failure, a retry's reservation - goes
+  through `lockStillPending()` and leaves a row reviewed meanwhile alone. A run killed during
+  the call (a redelivered message, a relaunched cron) skips them instead of re-billing them,
+  and a retry leaves out the rows reserved after its `GenerateSuggestionsMessage::$dispatchedAt`
   ([0024](docs/adr/0024-keys-reserved-before-the-provider-is-called.md)).
 - **One generation at a time per (catalogue, target locale, scope)**: `GenerationLock`, through
   `symfony/lock`, non-blocking (a second run is skipped, `GenerationOutcome::alreadyRunning()`),
@@ -71,11 +72,10 @@ method name is fine, a rename supersedes nothing), this file does.
   ([0010](docs/adr/0010-own-messenger-transport.md)).
 - **Every run is journaled**, a run with nothing to translate included: generation is
   fire-and-forget, and the journal is how someone who was not watching the console knows it
-  ran. Do not skip the "0 suggestion" entries. The exceptions are a run killed mid-chunk (its
-  reserved rows are the trace) and a run failing at flush on the pending unique index (a lock
-  store not shared between machines): the entity manager is
-  closed by then — `docs/operations/multi-server.md` says so
-  ([0009](docs/adr/0009-every-run-is-journaled.md)).
+  ran. Do not skip the "0 suggestion" entries. Two runs have no entry: one killed mid-chunk,
+  whose reserved rows are the trace, and one failing at flush on the pending unique index (a
+  lock store not shared between machines), whose entity manager is closed by then —
+  `docs/operations/multi-server.md` says so ([0009](docs/adr/0009-every-run-is-journaled.md)).
 - **No suggestion is ever applied without a human decision**: no auto-approval, whatever the
   confidence. Approving or rejecting re-reads the status in the database, row locked: a stale
   entity never writes over a newer decision
