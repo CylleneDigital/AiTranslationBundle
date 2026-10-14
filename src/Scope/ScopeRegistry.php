@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace CylleneDigital\AiTranslationBundle\Scope;
 
+use CylleneDigital\AiTranslationBundle\Locale\LocaleFallback;
+
 /**
  * The scope dimension seen from the outside: which codes exist, and whether one is
  * acceptable.
@@ -56,5 +58,31 @@ final readonly class ScopeRegistry
         $available = $this->getAvailableScopes();
 
         return [] === $available || isset($available[$scope]);
+    }
+
+    /**
+     * Whether an override in this locale is served in this scope: always for the global
+     * scope '', and for a provider without {@see ScopeLocalesProviderInterface}; otherwise
+     * when the locale, or a parent language of it, is one the scope exposes.
+     */
+    public function exposesLocale(string $scope, string $locale): bool
+    {
+        if ('' === $scope || !$this->scopeProvider instanceof ScopeLocalesProviderInterface) {
+            return true;
+        }
+
+        $exposed = $this->scopeProvider->getScopeLocales($scope);
+
+        if (null === $exposed) {
+            return true;
+        }
+
+        foreach ($exposed as $exposedLocale) {
+            if (LocaleFallback::covers($locale, $exposedLocale)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 }

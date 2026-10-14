@@ -156,6 +156,10 @@ facade - is in the records 0016, 0017, 0022 and 0023: read them before "fixing" 
 - `TranslationSuggestionRepository::transactional()` is hand-made on purpose:
   `EntityManager::wrapInTransaction()` closes the host's entity manager on any exception, a
   refused approval included ([0015](docs/adr/0015-hand-made-transactions.md)).
+- A method added to an interface of the contract breaks every host that implements it (the
+  interfaces are aliases a host points at its own service): a new capability is a separate
+  optional interface checked with `instanceof` (`ScopeLocalesProviderInterface`), or a method
+  on a `final` service ([0026](docs/adr/0026-new-host-capabilities-are-optional-interfaces.md)).
 - Every exception a host is expected to handle implements `Exception\ExceptionInterface` and
   extends the SPL exception that describes it — a new one must do both. Programming errors
   stay plain SPL exceptions: a generation run inside a transaction, an import or export

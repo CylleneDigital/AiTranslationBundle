@@ -74,6 +74,7 @@ Every method and constant of the interfaces under `Provider/`, `Catalogue/`, `Ov
 | `Override\AuthorProviderInterface` | who an override is attributed to |
 | `Override\TranslationManagerInterface` | the catalogues and the overrides behind one service |
 | `Scope\ScopeProviderInterface` | the scopes of the host |
+| `Scope\ScopeLocalesProviderInterface` | the locales each scope exposes, optional, on the same service |
 | `Suggestion\TranslationAiServiceInterface` | generation and review behind one service, with `MAX_KEYS_PER_RUN` |
 | `Exception\ExceptionInterface` | the marker of every exception a host is expected to handle |
 

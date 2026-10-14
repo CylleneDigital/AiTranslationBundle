@@ -16,6 +16,7 @@ use CylleneDigital\AiTranslationBundle\Override\TranslationValueValidator;
 use CylleneDigital\AiTranslationBundle\Repository\TranslationOverrideRepository;
 use CylleneDigital\AiTranslationBundle\Repository\TranslationSuggestionRepository;
 use CylleneDigital\AiTranslationBundle\Scope\NullScopeProvider;
+use CylleneDigital\AiTranslationBundle\Scope\ScopeLocalesProviderInterface;
 use CylleneDigital\AiTranslationBundle\Scope\ScopeProviderInterface;
 use CylleneDigital\AiTranslationBundle\Scope\ScopeRegistry;
 use CylleneDigital\AiTranslationBundle\Transfer\InvalidImportFileException;
@@ -470,6 +471,39 @@ final class OverrideTransferTest extends TestCase
 
         self::assertSame(1, $result->imported, 'The declared scope goes through.');
         self::assertSame(1, $result->skipped, 'The undeclared one is counted, not written.');
+    }
+
+    /** A channel offering English only: a French row of it would be stored, and never served nor shown. */
+    public function testAnEntryInALocaleItsScopeDoesNotExposeIsSkippedInThePreviewAndTheImport(): void
+    {
+        $scopeProvider = new class implements ScopeProviderInterface, ScopeLocalesProviderInterface {
+            public function getScope(): ?string
+            {
+                return null;
+            }
+
+            public function getAvailableScopes(): array
+            {
+                return ['web' => 'Web', 'b2b' => 'B2B'];
+            }
+
+            public function getScopeLocales(string $scope): ?array
+            {
+                return 'web' === $scope ? ['en_US'] : null;
+            }
+        };
+
+        [$catalogues, $overrides, $scopes] = $this->createServices($scopeProvider);
+        $importer = new OverrideImporter($catalogues, $overrides, $scopes, $this->createWriter($this->authorStub()), new TranslationValueValidator($catalogues));
+        $file = "locale,catalogue,translation_key,value,scope\nfr_FR,messages,app.a,Valeur,web\nen_US,messages,app.a,Value,web\nfr_FR,messages,app.b,Valeur,b2b\nfr_FR,messages,app.c,Valeur,\n";
+
+        $preview = $importer->preview($file, 'csv');
+        $result = $importer->import($file, 'csv', dryRun: true);
+
+        self::assertSame(1, $preview->skipped);
+        self::assertSame(1, $result->skipped);
+        self::assertSame(3, $result->imported, 'The exposed locale, a scope exposing every locale and the global scope go through.');
+        self::assertStringContainsString('does not expose locale "fr_FR"', $result->issues[0]->reason);
     }
 
     public function testAScopedValueEqualToTheGlobalOverrideIsIgnored(): void

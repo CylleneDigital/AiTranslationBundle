@@ -45,3 +45,4 @@ Alternatives rejected when there were some, Consequences, Related) and a line in
 | 0023 | [The AI facade only offers the workflow, not its steps](0023-ai-facade-offers-the-workflow-only.md) |
 | 0024 | [The keys of a batch are reserved before the provider is called](0024-keys-reserved-before-the-provider-is-called.md) |
 | 0025 | [A deleted scope is purged in a transaction of its own, its journal kept](0025-a-deleted-scope-is-purged-journal-kept.md) |
+| 0026 | [A new capability asked of the host is a separate optional interface](0026-new-host-capabilities-are-optional-interfaces.md) |
