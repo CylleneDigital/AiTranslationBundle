@@ -202,7 +202,9 @@ final class SuggestionGenerator
                         // The selection was made when the run started: a key given a value
                         // since — an override written while the earlier batches were with the
                         // provider — is nobody's request any more. Read again before every
-                        // batch but the first, which the selection has just read.
+                        // batch but the first, which the selection has just read. Not on a
+                        // retry: an override written for an errored key closes its row, and
+                        // reserve() leaves out a row that is no longer pending.
                         if ($onlyMissing && !$retryErrors && !$selectedNow) {
                             $chunk = $this->leaveOutDelivered($chunk, $done, $catalogue, $targetLocale, $scope);
                         }

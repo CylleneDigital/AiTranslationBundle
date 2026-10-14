@@ -58,9 +58,11 @@ method name is fine, a rename supersedes nothing), this file does.
   [0007](docs/adr/0007-paid-results-committed-chunk-by-chunk.md)). The keys of a chunk are
   reserved before the provider is called (errored rows, `metadata.in_flight`, flushed); every
   later write on a reserved or errored row - the reply, a failure, a retry's reservation - goes
-  through `lockStillPending()` and leaves a row reviewed meanwhile alone. A run killed during
-  the call (a redelivered message, a relaunched cron) skips them instead of re-billing them,
-  and a retry leaves out the rows reserved after its `GenerateSuggestionsMessage::$dispatchedAt`
+  through `lockStillPending()` and leaves a row reviewed meanwhile alone. In `onlyMissing`
+  mode, every batch after the first re-reads its keys and leaves out one given a value since
+  the run started (`leaveOutDelivered()`). A run killed during the call (a redelivered
+  message, a relaunched cron) skips them instead of re-billing them, and a retry leaves out
+  the rows reserved after its `GenerateSuggestionsMessage::$dispatchedAt`
   ([0024](docs/adr/0024-keys-reserved-before-the-provider-is-called.md)).
 - **One generation at a time per (catalogue, target locale, scope)**: `GenerationLock`, through
   `symfony/lock`, non-blocking (a second run is skipped, `GenerationOutcome::alreadyRunning()`),
