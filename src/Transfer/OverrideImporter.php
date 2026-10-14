@@ -10,6 +10,7 @@ use CylleneDigital\AiTranslationBundle\Override\OverrideChange;
 use CylleneDigital\AiTranslationBundle\Override\OverrideReader;
 use CylleneDigital\AiTranslationBundle\Override\OverrideWriter;
 use CylleneDigital\AiTranslationBundle\Override\TranslationValueValidator;
+use CylleneDigital\AiTranslationBundle\Scope\ScopeLocalesProviderInterface;
 use CylleneDigital\AiTranslationBundle\Scope\ScopeRegistry;
 
 /**
@@ -103,8 +104,10 @@ final class OverrideImporter
      * ({@see OverrideChange}, the rule every door shares).
      *
      * Values whose syntax does not match their catalogue's declared format
-     * ({@see TranslationValueValidator}), and entries carrying a locale, catalogue or
-     * scope the host does not know, join the skipped count instead of being written.
+     * ({@see TranslationValueValidator}), entries carrying a locale, catalogue or scope the
+     * host does not know, and entries in a locale their scope does not expose
+     * ({@see ScopeLocalesProviderInterface}), join the skipped count instead of being
+     * written. The same rules serve the preview and the import.
      *
      * @param list<array{key: string, catalogue: string, locale: string, value: string, scope: string, where: string}> $entries
      *
@@ -144,6 +147,8 @@ final class OverrideImporter
                 !\in_array($locale, $locales, true) => \sprintf('unknown locale "%s"', $locale),
                 null === $this->catalogues->getCatalogue($catalogue) => \sprintf('unknown catalogue "%s"', $catalogue),
                 !$this->scopes->isKnownScope($scope) => \sprintf('unknown scope "%s"', $scope),
+                // Stored, it would never be served nor shown: the scope does not offer it.
+                !$this->scopes->exposesLocale($scope, $locale) => \sprintf('scope "%s" does not expose locale "%s"', $scope, $locale),
                 default => null,
             };
 

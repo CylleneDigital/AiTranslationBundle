@@ -28,6 +28,14 @@ The host declares them through `CylleneDigital\AiTranslationBundle\Scope\ScopePr
 An integration package re-aliases the interface to its own adapter: a Sylius integration
 maps scopes to sales channels, for instance.
 
+When a scope exposes only some locales (a channel offering two languages), the same adapter
+can also implement the optional `ScopeLocalesProviderInterface`: `getScopeLocales(scope)`
+returns the locales the scope exposes, or `null` for every locale. An import then skips, with
+its reason, an entry in a locale its scope does not expose: stored, it would never be served
+nor shown. A parent language counts as exposed (`fr` for a scope exposing `fr_FR`: an override
+saved on `fr` is served to `fr_FR`), and the global scope has no restriction. Without the
+interface, nothing changes.
+
 ## At runtime
 
 When `getScope()` resolves, the decorated translator looks the key up in that scope
