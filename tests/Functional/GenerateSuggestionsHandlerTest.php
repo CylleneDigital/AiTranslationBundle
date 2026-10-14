@@ -158,4 +158,18 @@ final class GenerateSuggestionsHandlerTest extends DatabaseTestCase
 
         self::assertSame('FR Welcome to the shop', $this->entityManager()->getConnection()->fetchOne('SELECT suggested_value FROM cyllene_translation_suggestion'));
     }
+
+    /** A message queued before `$dispatchedAt` existed, handled after the upgrade: run as asked for now. */
+    public function testAMessageSerializedWithoutItsDispatchTimeIsStillHandled(): void
+    {
+        $this->answerProviderCallsInFrench();
+        $message = unserialize('O:69:"CylleneDigital\\AiTranslationBundle\\Message\\GenerateSuggestionsMessage":7:{s:9:"catalogue";s:8:"messages";s:12:"targetLocale";s:2:"fr";s:12:"sourceLocale";s:2:"en";s:8:"provider";N;s:11:"onlyMissing";b:1;s:5:"scope";s:0:"";s:11:"retryErrors";b:0;}');
+        self::assertInstanceOf(GenerateSuggestionsMessage::class, $message);
+
+        /** @var GenerateSuggestionsMessageHandler $handler */
+        $handler = self::getContainer()->get(GenerateSuggestionsMessageHandler::class);
+        $handler($message);
+
+        self::assertSame('FR Welcome to the shop', $this->entityManager()->getConnection()->fetchOne('SELECT suggested_value FROM cyllene_translation_suggestion'));
+    }
 }

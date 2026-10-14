@@ -159,7 +159,10 @@ final class TranslationAiServiceTest extends TestCase
         $this->suggestionRepository
             ->method('saveDeferred')
             ->willReturnCallback(static function (TranslationSuggestion $suggestion) use (&$saved): void {
-                $saved[] = $suggestion;
+                // A row is staged twice: reserved before the provider call, then filled.
+                if (!\in_array($suggestion, $saved, true)) {
+                    $saved[] = $suggestion;
+                }
             });
 
         $created = $service->generateSuggestions('messages', 'en_US', 'fr_FR')->created;
@@ -257,7 +260,10 @@ final class TranslationAiServiceTest extends TestCase
         $this->suggestionRepository
             ->method('saveDeferred')
             ->willReturnCallback(static function (TranslationSuggestion $suggestion) use (&$saved): void {
-                $saved[] = $suggestion;
+                // A row is staged twice: reserved before the provider call, then filled.
+                if (!\in_array($suggestion, $saved, true)) {
+                    $saved[] = $suggestion;
+                }
             });
 
         try {
@@ -295,7 +301,10 @@ final class TranslationAiServiceTest extends TestCase
         $this->suggestionRepository
             ->method('saveDeferred')
             ->willReturnCallback(static function (TranslationSuggestion $suggestion) use (&$saved): void {
-                $saved[] = $suggestion;
+                // A row is staged twice: reserved before the provider call, then filled.
+                if (!\in_array($suggestion, $saved, true)) {
+                    $saved[] = $suggestion;
+                }
             });
 
         try {
@@ -325,7 +334,10 @@ final class TranslationAiServiceTest extends TestCase
         $this->suggestionRepository
             ->method('saveDeferred')
             ->willReturnCallback(static function (TranslationSuggestion $suggestion) use (&$saved): void {
-                $saved[] = $suggestion;
+                // A row is staged twice: reserved before the provider call, then filled.
+                if (!\in_array($suggestion, $saved, true)) {
+                    $saved[] = $suggestion;
+                }
             });
 
         self::assertSame(2, $service->generateSuggestions('messages', 'en_US', 'fr_FR')->created);
@@ -346,7 +358,10 @@ final class TranslationAiServiceTest extends TestCase
         $this->suggestionRepository
             ->method('saveDeferred')
             ->willReturnCallback(static function (TranslationSuggestion $suggestion) use (&$saved): void {
-                $saved[] = $suggestion;
+                // A row is staged twice: reserved before the provider call, then filled.
+                if (!\in_array($suggestion, $saved, true)) {
+                    $saved[] = $suggestion;
+                }
             });
 
         try {
@@ -463,7 +478,9 @@ final class TranslationAiServiceTest extends TestCase
         $this->suggestionRepository
             ->method('saveDeferred')
             ->willReturnCallback(static function (TranslationSuggestion $suggestion) use (&$saved): void {
-                $saved[] = $suggestion->getKey();
+                if (!\in_array($suggestion->getKey(), $saved, true)) {
+                    $saved[] = $suggestion->getKey();
+                }
             });
 
         self::assertSame(SuggestionGenerator::MAX_KEYS_PER_RUN, $service->generateSuggestions('messages', 'en_US', 'fr_FR')->created);
@@ -558,7 +575,10 @@ final class TranslationAiServiceTest extends TestCase
         $this->suggestionRepository
             ->method('saveDeferred')
             ->willReturnCallback(static function (TranslationSuggestion $suggestion) use (&$saved): void {
-                $saved[] = $suggestion;
+                // A row is staged twice: reserved before the provider call, then filled.
+                if (!\in_array($suggestion, $saved, true)) {
+                    $saved[] = $suggestion;
+                }
             });
 
         self::assertSame(1, $makeService()->generateSuggestions('messages', 'en_US', 'fr_FR', retryErrors: true)->created);
@@ -714,7 +734,8 @@ final class TranslationAiServiceTest extends TestCase
         );
 
         $this->suggestionRepository->method('isOpen')->willReturn(false);
-        $this->suggestionRepository->expects(self::never())->method('saveDeferred');
+        // The reservation before the provider call, and nothing after the failure.
+        $this->suggestionRepository->expects(self::once())->method('saveDeferred');
 
         $this->expectExceptionMessage('database gone');
 
@@ -739,7 +760,10 @@ final class TranslationAiServiceTest extends TestCase
         $this->suggestionRepository
             ->method('saveDeferred')
             ->willReturnCallback(static function (TranslationSuggestion $suggestion) use (&$saved): void {
-                $saved[] = $suggestion;
+                // A row is staged twice: reserved before the provider call, then filled.
+                if (!\in_array($suggestion, $saved, true)) {
+                    $saved[] = $suggestion;
+                }
             });
 
         try {
@@ -822,7 +846,10 @@ final class TranslationAiServiceTest extends TestCase
         $this->suggestionRepository
             ->method('saveDeferred')
             ->willReturnCallback(static function (TranslationSuggestion $suggestion) use (&$saved): void {
-                $saved[] = $suggestion;
+                // A row is staged twice: reserved before the provider call, then filled.
+                if (!\in_array($suggestion, $saved, true)) {
+                    $saved[] = $suggestion;
+                }
             });
 
         $service->generateSuggestions('messages', 'en_US', 'fr_FR');
@@ -952,7 +979,10 @@ final class TranslationAiServiceTest extends TestCase
         $this->suggestionRepository
             ->method('saveDeferred')
             ->willReturnCallback(static function (TranslationSuggestion $suggestion) use (&$saved): void {
-                $saved[] = $suggestion;
+                // A row is staged twice: reserved before the provider call, then filled.
+                if (!\in_array($suggestion, $saved, true)) {
+                    $saved[] = $suggestion;
+                }
             });
 
         $service->generateSuggestions('messages', 'en_US', 'fr_FR');
@@ -996,7 +1026,10 @@ final class TranslationAiServiceTest extends TestCase
         $this->suggestionRepository
             ->method('saveDeferred')
             ->willReturnCallback(static function (TranslationSuggestion $suggestion) use (&$saved): void {
-                $saved[] = $suggestion;
+                // A row is staged twice: reserved before the provider call, then filled.
+                if (!\in_array($suggestion, $saved, true)) {
+                    $saved[] = $suggestion;
+                }
             });
 
         $created = $service->generateSuggestions('messages', 'en_US', 'fr_FR', scope: 'b2b')->created;

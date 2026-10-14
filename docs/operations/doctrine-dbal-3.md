@@ -15,10 +15,10 @@ doctrine:
 The bundle writes in **transactions of its own** (`TranslationSuggestionRepository::transactional()`):
 approving or rejecting a suggestion locks its row and writes in one, so a suggestion
 reviewed meanwhile (a double submission, a second console session) is never approved
-twice; writing an override locks the pending suggestions it closes in another. Every ORM
-flush opens a transaction too, which then **nests** inside the bundle's, and the writer's
-transaction nests inside a review's, or inside the host's own when the host writes from
-one.
+twice; writing an override locks the pending suggestions it closes in another; a generation
+stores each reply in one, the reserved rows locked. Every ORM flush opens a transaction too,
+which then **nests** inside the bundle's, and the writer's transaction nests inside a
+review's, or inside the host's own when the host writes from one.
 
 DBAL 4 always nests with a savepoint. DBAL 3 does so only with `use_savepoints: true`;
 otherwise it emulates the nesting and triggers:
@@ -40,11 +40,11 @@ Call Doctrine\DBAL\Connection::setNestTransactionsWithSavepoints(true) to enable
   request, a command, a worker), and only when Doctrine deprecations are enabled
   (`DOCTRINE_DEPRECATIONS=trigger` or `track`, or `Deprecation::enableWith…()`). In debug,
   DoctrineBundle then logs it as a PHP deprecation (`deprecation.INFO` in
-  `var/log/dev.log`): one entry per request or command that reviews a suggestion or writes
-  an override.
+  `var/log/dev.log`): one entry per request, command or worker that reviews a suggestion,
+  writes an override or generates suggestions.
 - **The tests**: a test suite failing on deprecations fails once per run, on the first test
-  that reviews a suggestion or writes an override, unless deduplication is disabled
-  (`Deprecation::withoutDeduplication()`), then on each of them.
+  that reviews a suggestion, writes an override or generates suggestions, unless deduplication
+  is disabled (`Deprecation::withoutDeduplication()`), then on each of them.
 
 ## Why the bundle does not set it itself
 

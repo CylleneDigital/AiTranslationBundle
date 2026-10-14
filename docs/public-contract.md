@@ -51,9 +51,11 @@ that changes forces every host to generate a migration.
 | `Entity\ScopeParameters` | the mapping, every public method |
 | `Entity\SuggestionStatus` | `Pending`, `Approved`, `Rejected` |
 
-The `metadata` of a suggestion is free-form, the provider's own keys included, with one
-exception: an approved suggestion carries `override_change`, one of the `OverrideChange`
-values (`write`, `revert`, `none`), and `reverted_to` for a revert.
+The `metadata` of a suggestion is free-form, the provider's own keys included, with two
+exceptions: an approved suggestion carries `override_change`, one of the `OverrideChange`
+values (`write`, `revert`, `none`), and `reverted_to` for a revert; an errored suggestion whose
+batch is with the provider, or was when its run was killed, carries `in_flight`, the time the
+batch was reserved.
 
 ## Interfaces
 
@@ -94,7 +96,7 @@ What the services and interfaces hand over, constructors included:
 | Class | Members |
 |---|---|
 | `Catalogue\TranslationCatalogue` | `$identifier`, `$category`, `$domain`, `$type`, `fromIdentifier()`, `getDomainLabel()` |
-| `Message\GenerateSuggestionsMessage` | `$catalogue`, `$targetLocale`, `$sourceLocale`, `$provider`, `$onlyMissing`, `$scope`, `$retryErrors` |
+| `Message\GenerateSuggestionsMessage` | `$catalogue`, `$targetLocale`, `$sourceLocale`, `$provider`, `$onlyMissing`, `$scope`, `$retryErrors`, `$dispatchedAt` |
 | `Override\OverrideChange` | `Write`, `Revert`, `None`, `decide()` |
 | `Provider\TranslationResult` | `$translation`, `$confidence`, `$metadata` |
 | `Provider\ProviderRunEstimate` | `$inputTokens`, `$outputTokens`, `$cost`, `$currency`, `$quotaRemaining`, `$quotaLimit`, `$lowerBound` |

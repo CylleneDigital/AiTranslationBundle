@@ -15,7 +15,9 @@ use Symfony\Component\DependencyInjection\Attribute\Exclude;
  * process it. Otherwise it is handled where it is dispatched. `$retryErrors` re-sends
  * the keys whose previous run failed, and only those, each the way that run would have
  * (their errored suggestions are refilled; one whose key the files have filled since is
- * closed instead); `$onlyMissing` does not apply to it.
+ * closed instead); `$onlyMissing` does not apply to it. `$dispatchedAt` is when the run
+ * was asked for: a redelivered retry leaves out the keys its own run had reserved before
+ * the worker died, instead of billing them twice.
  */
 #[Exclude]
 final readonly class GenerateSuggestionsMessage
@@ -28,6 +30,7 @@ final readonly class GenerateSuggestionsMessage
         public bool $onlyMissing = true,
         public string $scope = '',
         public bool $retryErrors = false,
+        public \DateTimeImmutable $dispatchedAt = new \DateTimeImmutable(),
     ) {
     }
 }
