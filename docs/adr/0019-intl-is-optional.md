@@ -18,7 +18,6 @@ override is served as stored, and an invalid ICU pattern is not caught at save t
 
 - The bundle installs and runs on a PHP without `intl`, with a documented loss.
 - A new use of ICU formatting or of `\Locale` is guarded the same way.
-- CI runs the suite without `intl` too; a test that only makes sense with it says so.
 
 ## Related
 

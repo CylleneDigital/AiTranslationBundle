@@ -45,7 +45,8 @@ This file only holds what reading the code will not tell you.
 
 Each rule is here in full, with the names the code uses; its reasons are in the decision record it
 links ([`docs/adr/`](docs/adr/README.md)). Read the record before changing a rule, and write a new
-record rather than editing an accepted one - the records hold no path nor figure, this file does.
+record rather than editing an accepted one - the records hold no path nor figure (a class or
+method name is fine, a rename supersedes nothing), this file does.
 
 - **Money first.** Generation calls a paid API. Anything that can bill the same keys twice (a
   retry, a rollback of stored results, a lost lock, a Messenger redelivery) is a bug. Hence
@@ -110,8 +111,7 @@ record rather than editing an accepted one - the records hold no path nor figure
   platform) integration is a separate package ([0005](docs/adr/0005-no-user-interface.md)).
 - **The Flex recipe lives in `symfony/recipes-contrib`**
   (`cyllene-digital/ai-translation-bundle/<version>/`), not here: a change to the configuration
-  tree, the bundle class or the install steps has to be mirrored there
-  ([0024](docs/adr/0024-flex-recipe-in-recipes-contrib.md)).
+  tree, the bundle class or the install steps has to be mirrored there.
 - **The public contract is one page**, `docs/public-contract.md`: a listed method is its whole
   signature, a service constructor is not covered, and whatever the page does not name is
   internal. Renaming, removing or re-typing a listed symbol is a major version; the page's
@@ -123,8 +123,7 @@ record rather than editing an accepted one - the records hold no path nor figure
 
 What was left as it is on purpose - the race on the first write of an override, DBAL 3's
 savepoints left to the host, no `countPendingForKey()`, the steps of a run kept off the AI
-facade, no `CHANGELOG.md` - is in the records 0016, 0017, 0022, 0023 and 0025: read them before
-"fixing" one.
+facade - is in the records 0016, 0017, 0022 and 0023: read them before "fixing" one.
 
 ## Known pitfalls
 
@@ -154,5 +153,4 @@ facade, no `CHANGELOG.md` - is in the records 0016, 0017, 0022, 0023 and 0025: r
   paths: DBAL 4.5's schema editor (handed back through ORM 3.7's `setSchema()`) and the in-place
   setters of DBAL 3.9 to 4.4. Code bridging two library versions cannot type-check against both,
   which is why CI runs PHPStan on the highest dependencies only
-  ([0018](docs/adr/0018-byte-for-byte-comparison.md),
-  [0026](docs/adr/0026-phpstan-on-highest-dependencies-only.md)).
+  ([0018](docs/adr/0018-byte-for-byte-comparison.md)).

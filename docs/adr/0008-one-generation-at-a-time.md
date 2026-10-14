@@ -27,9 +27,9 @@ A run also skips every key that already has a pending suggestion.
 
 - Any number of workers on one machine need nothing: the framework's default store is local to
   the machine.
-- Workers spread over several machines need a shared lock store; without one, the second of two
-  concurrent runs fails at its first flush on the database's unique index, after paying for one
-  chunk.
+- Workers spread over several machines need a shared lock store; without one, of two concurrent
+  runs, the one that flushes a key the other already stored fails on the database's unique
+  index, after paying for that chunk.
 - A crashed worker releases its lock: the process' end on a local store, the TTL on an expiring
   one.
 - An integration adds no lock of its own: it would duplicate this one without covering more.

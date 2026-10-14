@@ -58,15 +58,18 @@ trade-off.
 PENDING suggestion per (locale, catalogue, key, scope): a unique index, which no race can
 defeat. The lock protects the *money*; the database protects the *data*. That separation is
 why an unreachable lock store lets a run proceed instead of refusing it: the worst case is a
-double spend, never a corrupt review queue. Its symptom: the second of two concurrent runs fails
-at its first flush, on that unique index, after paying for its first batch, and without a
-journal entry, the entity manager being closed by then. Seeing it in the logs means the lock
+double spend, never a corrupt review queue. Its symptom: of two concurrent runs, the one that
+flushes a key the other already stored fails on that unique index, after paying for that batch,
+and without a journal entry, the entity manager being closed by then. Seeing it in the logs means the lock
 store is not shared between the machines running the workers.
 
 **A failed generation is never re-delivered.** The handler wraps every failure in
 `UnrecoverableMessageHandlingException`, so no transport's retry strategy can re-run it,
 which would re-bill the provider. The message goes to the failure transport instead. This
-holds whatever the number of workers, and whatever transport the message was routed to.
+holds whatever the number of workers, and whatever transport the message was routed to. A
+worker killed mid-run is the exception: its message did not fail, and the transport redelivers
+it after its redelivery timeout; the batches already stored are skipped, the one in flight is
+billed again.
 
 **A crashed worker releases its lock.** With the local stores, the kernel releases it when the
 process dies, `kill -9` included. With an expiring store, it is released after

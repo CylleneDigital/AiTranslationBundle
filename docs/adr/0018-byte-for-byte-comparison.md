@@ -24,11 +24,8 @@ the scope. The mapping carries no collation.
 - `Save`, `save` and `Save ` are three overrides, `FR` and `fr` two scopes, on every platform.
 - `schema:update` and `migrations:diff` pick the collation up like any other column change.
 - A new column compared byte for byte has to be added to the listener's list.
-- The listener follows the schema API of each supported DBAL version, which differs: that code
-  cannot type-check against both ([0026](0026-phpstan-on-highest-dependencies-only.md)).
-- Only a run on a real MySQL or MariaDB proves it: SQLite proves none of it.
+- The listener follows the schema API of each supported DBAL version, which differs.
 
 ## Related
 
 - [0021. The entity mapping is public surface](0021-entity-mapping-is-public-surface.md)
-- [0026. PHPStan runs on the highest dependencies only](0026-phpstan-on-highest-dependencies-only.md)

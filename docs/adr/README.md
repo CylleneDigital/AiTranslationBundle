@@ -4,10 +4,13 @@ One file per decision: its context, what was decided, what follows from it. A de
 edited once accepted: a new record supersedes it, and the old one says so in its status.
 
 A record holds the decision and its reasons, which do not move with the code. What does - file
-paths, figures, the full rule with the names the code uses - is in the concept and operations
-pages ([index](../index.md)), the [public contract](../public-contract.md) and `CLAUDE.md`, which
-follow the code: a record that quoted them would be wrong at the next refactoring, and could not
-be corrected.
+paths, figures, the full rule - is in the concept and operations pages ([index](../index.md)),
+the [public contract](../public-contract.md) and `CLAUDE.md`, which follow the code: a record that
+quoted them would be wrong at the next refactoring, and could not be corrected. A class or method
+name is fine: a rename supersedes nothing.
+
+The first records were written together, after the decisions they record: their date is the
+date they were written, not the date the decision was taken.
 
 A record explains a choice, it promises nothing: only the [public contract](../public-contract.md)
 says what is stable.
@@ -40,6 +43,3 @@ Alternatives rejected when there were some, Consequences, Related) and a line in
 | 0021 | [The entity mapping is public surface](0021-entity-mapping-is-public-surface.md) |
 | 0022 | [No `countPendingForKey()`: `createPendingQueryBuilder()` is the extension point](0022-no-count-pending-for-key.md) |
 | 0023 | [The AI facade only offers the workflow, not its steps](0023-ai-facade-offers-the-workflow-only.md) |
-| 0024 | [The Flex recipe lives in `symfony/recipes-contrib`](0024-flex-recipe-in-recipes-contrib.md) |
-| 0025 | [Release notes are GitHub Releases, there is no changelog file](0025-release-notes-are-github-releases.md) |
-| 0026 | [PHPStan runs on the highest dependencies only](0026-phpstan-on-highest-dependencies-only.md) |
