@@ -1,6 +1,7 @@
 # 0008. One generation at a time per catalogue, locale and scope, under a lock that degrades
 
-- Status: accepted
+- Status: accepted; the symptom of an unshared lock store is superseded by
+  [0024](0024-keys-reserved-before-the-provider-is-called.md)
 - Date: 2026-10-14
 
 ## Context

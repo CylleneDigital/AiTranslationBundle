@@ -1,6 +1,7 @@
 # 0006. No retry that can bill the same keys twice
 
-- Status: accepted
+- Status: accepted; its consequence about a worker killed mid-run is superseded by
+  [0024](0024-keys-reserved-before-the-provider-is-called.md)
 - Date: 2026-10-14
 
 ## Context

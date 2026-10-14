@@ -50,8 +50,13 @@ triggered by the [interactive console](../operations/commands.md)'s generation e
    text volume (~6000 characters): small enough for reliable JSON responses from LLMs, without
    the risk of overflowing on long values. A key the provider leaves out of its reply becomes an
    errored suggestion and the run is reported as failed (the other keys are kept); a
-   hallucinated key (absent from the request) is discarded.
-4. **Storage**: one `pending` suggestion per translated key, with the source value, the
+   hallucinated key (absent from the request) is discarded. Before each call, the keys of
+   the batch are **reserved**: stored as errored rows marked in flight, so that a run killed
+   during the call never re-sends them on its own (see
+   [Interrupted runs](#interrupted-runs)).
+4. **Storage**: the reserved rows are filled from the reply, re-read in the database and
+   locked: a row closed meanwhile (an override written for its key, a rejection) stays closed,
+   and its paid translation is dropped (logged as `info`). One `pending` suggestion per translated key, with the source value, the
    source locale, the provider name, the **confidence** and the raw metadata (model, token
    usage of the call: `batch_usage`, with `batch_size` and `batch_id`, the same on every
    suggestion of a provider call; see [Token usage](#token-usage)) for the reviewer (a failed run stores **errored** rows instead, see below). The
@@ -136,7 +141,8 @@ Which keys end up errored depends on what failed:
 
 In the last two cases the run still ends as a failure, in the journal and for the caller.
 
-Each such key is stored as an **errored pending suggestion**: no value yet (`suggested_value` NULL), confidence 0, the
+Each such key is stored as an **errored pending suggestion** (the reserved row of its batch,
+for a key that was sent): no value yet (`suggested_value` NULL), confidence 0, the
 requested provider, and the full provider error in `generation_error`. The reviewer sees the
 failure **per row**, can write the translation by hand before approving it, or reject the row. Approving an errored row **without a value is refused**
 (`SuggestionValueMissingException`); batch approval skips such rows and reports them. A later
@@ -154,6 +160,28 @@ closed, rejected as superseded by the file (`SuggestionRejectedEvent::$supersede
 `file`, author `system`). A row stored without the mode counts as *missing keys*: not
 billing is the safe side. The estimate and the dry-run count the same keys, and close
 nothing.
+
+### Interrupted runs
+
+A run killed while the provider is called (a worker's OOM, a `SIGKILL` at a deployment, a
+lost container, a console stopped) does not fail: its message is delivered again by the
+transport (doctrine and Redis after their redelivery timeout, AMQP as soon as the connection
+drops), or the cron starts the command again. The keys of the batch that was in flight were
+reserved before the call, so they are **errored rows** already:
+
+- `generation_error` says the run was interrupted before the reply was stored;
+- `metadata.in_flight` holds when the batch was reserved. A row that has it while no run is
+  going is the trace of an interrupted run; a reply or a failure removes it.
+
+The run that starts again skips them, like any pending suggestion, instead of billing them
+twice. Sending them again is a run that *retries errors*, decided by someone. A retry message
+that is itself redelivered leaves out the rows reserved after it was dispatched
+(`GenerateSuggestionsMessage::$dispatchedAt`): those are its own run's, reserved before it was
+killed.
+
+While a batch is with the provider, its reserved rows are pending suggestions with no value,
+in the review queue like the other errored rows; an integration that hides them filters on
+`metadata.in_flight`. The journal has no entry for an interrupted run: the rows are its trace.
 
 ### Token usage
 

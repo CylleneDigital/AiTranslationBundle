@@ -82,14 +82,22 @@ abstract class DatabaseTestCase extends KernelTestCase
     /**
      * Swaps the suite's HTTP client for an OpenAI-compatible server translating every
      * requested key as "FR <source>" — what a generation needs to go all the way.
+     * `$during` runs while the call is in flight, with the requested keys: what the
+     * database holds then, or what another process does meanwhile.
+     *
+     * @param (\Closure(list<string>): void)|null $during
      */
-    protected function answerProviderCallsInFrench(): void
+    protected function answerProviderCallsInFrench(?\Closure $during = null): void
     {
-        self::getContainer()->set('http_client', new MockHttpClient(static function (string $method, string $url, array $options): JsonMockResponse {
+        self::getContainer()->set('http_client', new MockHttpClient(static function (string $method, string $url, array $options) use ($during): JsonMockResponse {
             $prompt = self::stringAt(self::jsonBody($options), 'messages', 1, 'content');
             preg_match('/\{.*\}/s', $prompt, $match);
             $texts = json_decode($match[0] ?? self::fail('No JSON object in the prompt.'), true, 512, \JSON_THROW_ON_ERROR);
             self::assertIsArray($texts);
+
+            if (null !== $during) {
+                $during(array_map(strval(...), array_keys($texts)));
+            }
 
             return new JsonMockResponse(['choices' => [['message' => ['content' => json_encode(
                 array_map(static fn (mixed $text): array => ['t' => 'FR '.self::stringAt([$text], 0), 'c' => 0.9], $texts),
