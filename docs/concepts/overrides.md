@@ -132,4 +132,7 @@ names it; an orphan catalogue is not judged.
   the hook point for side effects the bundle cannot know about (HTTP cache purge, audit log,
   webhook…). A removal reads the row locked, in its own transaction: two removals of the same
   key at once (two admins resetting the same entry) delete one row and dispatch one event,
-  the second one finding nothing to remove.
+  the second one finding nothing to remove. A save of an existing override reads its row
+  locked too: one meeting a removal waits for it, then stores its value in a new row, and
+  its event announces what is stored. Batch writes are not covered: see
+  [Batch writes during a removal](manual-override.md#batch-writes-during-a-removal).

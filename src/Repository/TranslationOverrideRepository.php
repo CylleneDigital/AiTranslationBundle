@@ -63,7 +63,9 @@ class TranslationOverrideRepository extends ServiceEntityRepository
     /**
      * The override of this key IN DATABASE, its row locked until the end of the caller's
      * transaction: a concurrent removal of the same key waits for this one, then finds
-     * nothing, instead of deleting the row a second time and announcing it twice.
+     * nothing, instead of deleting the row a second time and announcing it twice. On a key
+     * with no row, InnoDB locks the gap where it would go, which blocks inserts of nearby
+     * keys until the commit: save() only calls it for a row it found.
      */
     public function lockOneByKey(string $key, string $catalogue, string $locale, string $scope = ''): ?TranslationOverride
     {

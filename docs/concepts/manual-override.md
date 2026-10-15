@@ -99,6 +99,22 @@ is corrupted (the first value is stored, the second write is refused), and repla
 updates the row. It takes a write race on a key that has no override yet, so it is left as a
 known limit rather than paid for with a platform-specific upsert on every save.
 
+A save never locks a key that has no row: on MySQL and MariaDB, a locked read of an absent key
+locks the gap where it would go, and two first writes of different keys would wait for each
+other. Only the row of an existing override is read locked, so that a save meeting a removal
+of the same key waits for it and stores its value in a new row.
+
+### Batch writes during a removal
+
+`saveMany()`, `saveAndRemoveMany()` and `removeMany()` (the import, a batch approval) read
+their rows without a lock, and `removeMany()` deletes the entities its caller loaded. Meeting
+a removal of one of their keys from another request, a batch can announce a value that is not
+stored (its `UPDATE` matched no row) or a removal another request already made: Doctrine does
+not check how many rows a write touched. The stored state stays right; only the events and
+cache invalidations of those keys are off. Locking every row of a batch would make concurrent
+imports wait for each other, or deadlock, so it is a known limit: replay the import, or save
+the entry again, if a webhook missed it.
+
 ## Living with overrides
 
 - the interactive console's "Browse and edit translations" entry inventories what is

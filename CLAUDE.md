@@ -99,7 +99,10 @@ method name is fine, a rename supersedes nothing), this file does.
   `lockPendingByKeys()`): the identity map does not refresh an entity loaded earlier
   ([0013](docs/adr/0013-stale-entities-never-decide.md)). The same goes for removing an
   override (`OverrideWriter::remove()`, through `lockOneByKey()`): of two removals of one key,
-  the second finds nothing and announces nothing.
+  the second finds nothing and announces nothing. `save()` re-reads an existing row the same
+  way, never an absent key: an InnoDB gap lock would make first writes of different keys wait
+  for each other. The batch writes (`writeMany()`) read without a lock, a limit
+  `docs/concepts/manual-override.md` states.
 - **A batch is decided against the state it leaves** (`OverrideReader::planChanges()`): an
   import or a batch approval that changes a parent (the global value, the parent language's)
   compares the children with the new value, not the stored one — and reads only the rows of
