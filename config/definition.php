@@ -70,7 +70,7 @@ return static function (DefinitionConfigurator $definition): void {
                 ->defaultNull()
             ->end()
             ->booleanNode('translation_files_cache')
-                ->info('Keeps each parsed translation file in the "cyllene_digital_ai_translation.translation_files_cache" pool (adapter cache.app, 7 days, both overridable under framework.cache.pools), keyed by its path, date of modification and size: a request stats the files instead of parsing them. false = parse on every new process.')
+                ->info('Keeps each parsed translation file in the "cyllene_digital_ai_translation.translation_files_cache" pool (adapter cache.app, 7 days, both overridable under framework.cache.pools), keyed by its path and a hash of its content: a request reads and hashes the files instead of parsing them. false = parse on every new process.')
                 ->defaultTrue()
             ->end()
             ->scalarNode('default_locale')

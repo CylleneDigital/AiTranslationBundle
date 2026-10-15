@@ -49,14 +49,13 @@ default).
 
 | What | How |
 | --- | --- |
-| Key | The file's path, its date of modification and its size, and a format version the bundle bumps when it changes what it stores |
-| Invalidation | None needed: a file that changes gets a new key, the old entry is orphaned |
+| Key | The file's path, a hash of its content, and a format version the bundle bumps when it changes what it stores |
+| Invalidation | None needed: a file whose content changes gets a new key, the old entry is orphaned |
 | Lifetime | 7 days (`default_lifetime` of the pool), which bounds the orphaned entries |
-| Not cached | The walk of the directories: a file added or removed is seen on the next request |
+| Not cached | The walk of the directories: a file added or removed is seen on the next request. A file that cannot be read: once readable again, it is read on the next request |
 | Long-running processes | The scanner is reset between two Messenger messages (`kernel.reset`): a worker sees an edited file without a restart |
 
-A file rewritten within the same second **with the same size** keeps the previous entry: touch
-it, or empty the pool with
+To empty the pool:
 `bin/console cache:pool:clear cyllene_digital_ai_translation.translation_files_cache`.
 `cache:clear` is not enough when `APP_SHARE_DIR` is set, as the Symfony 7.4 and 8 skeletons do
 (`var/share`): the filesystem `cache.app`, and this pool with it, then lives in that directory,

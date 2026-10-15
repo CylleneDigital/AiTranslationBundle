@@ -36,8 +36,8 @@ pool.
 
 The parsed translation files (`translation_files_cache`) are kept in a pool of their own,
 built on `cache.app` by default. Shared or not, nothing goes wrong: the key holds each
-file's path, date of modification and size, so a node only reads entries written for the file
-it has, and releases deployed under different paths simply miss each other's entries.
+file's path and a hash of its content, so a node only reads entries parsed from the content it
+has, between releases too, whatever the dates of modification a build leaves.
 
 Symfony's compiled catalogues (`kernel.cache_dir/translations`) are node-local too, but the
 bundle never touches them: they hold the file translations, never the overrides, which are

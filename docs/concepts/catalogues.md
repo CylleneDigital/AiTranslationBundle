@@ -30,8 +30,8 @@ the ICU variant taking precedence (as in the translator). A locale written with 
 translation tools name their files (`messages.pt-BR.yaml`), is read with `_`: it is the
 `pt_BR` locale, the spelling Symfony and the stored overrides use.
 
-**Nothing is silently ignored**: a file whose name or content cannot be interpreted is listed
-with its reason (`getIgnoredFiles()`), for the caller to surface as a warning.
+**Nothing is silently ignored**: a file that cannot be read, or whose name or content cannot be
+interpreted, is listed with its reason (`getIgnoredFiles()`), for the caller to surface as a warning.
 
 The scanned directory is configured via `translations_path` (default:
 `%kernel.project_dir%/translations`). `additional_paths` adds more roots (a theme, a
