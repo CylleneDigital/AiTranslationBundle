@@ -57,9 +57,11 @@ default).
 
 A file rewritten within the same second **with the same size** keeps the previous entry: touch
 it, or empty the pool with
-`bin/console cache:pool:clear cyllene_digital_ai_translation.translation_files_cache`. Changing
-the adapter or the lifetime: see the [configuration reference](../configuration-reference.md#notes).
-To parse the files in every new process instead, set `translation_files_cache: false`.
+`bin/console cache:pool:clear cyllene_digital_ai_translation.translation_files_cache`.
+`cache:clear` is not enough when `APP_SHARE_DIR` is set, as the Symfony 7.4 and 8 skeletons do
+(`var/share`): the filesystem `cache.app`, and this pool with it, then lives in that directory,
+which `cache:clear` leaves alone. Changing the adapter or the lifetime: see the
+[configuration reference](../configuration-reference.md#notes). To parse the files in every new process instead, set `translation_files_cache: false`.
 
 ## What the bundle does not touch
 
