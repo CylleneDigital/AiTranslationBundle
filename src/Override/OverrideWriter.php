@@ -88,6 +88,14 @@ final class OverrideWriter
         return $this->withEffectsAfter(fn (): TranslationOverride => $this->suggestionRepository->transactional(function () use ($key, $catalogue, $locale, $value, $originalValue, $scope): TranslationOverride {
             $override = $this->repository->findOneByKey($key, $catalogue, $locale, $scope);
 
+            // Only a row that exists is read again locked: a removal holding it is waited for,
+            // and the value lands in a new row instead of an UPDATE matching nothing. A locked
+            // read of an absent key would take an InnoDB gap lock, and two first writes of
+            // different keys would block each other.
+            if (null !== $override) {
+                $override = $this->repository->lockOneByKey($key, $catalogue, $locale, $scope);
+            }
+
             if (null === $override) {
                 $override = new TranslationOverride($key, $catalogue, $locale, $scope);
                 $override->setOriginalValue($originalValue);
