@@ -12,10 +12,10 @@ bundle could listen to: a deployment, an edit in development, a theme package up
 
 ## Decision
 
-Each parsed file is kept in a cache pool, under a key made of its path, its date of
-modification, its size and a format version. Nothing invalidates an entry: a file that changes
-gets a new key, and the pool's lifetime removes what is left behind. The walk of the
-directories is not cached, so a file added or removed is seen at once. The cache is on by
+Each parsed file is kept in a cache pool, under a key made of its path, a hash of its content
+and a format version. Nothing invalidates an entry: a file that changes gets a new key, and the pool's lifetime removes what is left behind. The walk of the
+directories is not cached, so a file added or removed is seen at once. A file that cannot be
+read is reported without being cached: making it readable changes nothing in its key. The cache is on by
 default, the pool is the bundle's own, built on `cache.app`, and the scanner's in-memory memo
 is reset between two Messenger messages.
 
@@ -25,16 +25,17 @@ is reset between two Messenger messages.
   seen, which is the usual case in development.
 - **Symfony's `ConfigCache`**, as the translator does: resources are only checked in debug, so
   production has the same blind spot, for more code written into the cache directory.
-- **The date of modification alone**: two writes within the same second would keep the first
-  one; the size tells most of them apart.
+- **The date of modification and the size**: no read of the file, but a file rewritten within
+  the same second at the same size keeps the previous entry, and so does a release deployed
+  under the same path, with the dates a build froze, on a pool shared between releases.
+  Reading and hashing a file costs a fraction of reading its cache entry, and far less than
+  parsing it.
 
 ## Consequences
 
-- A request stats every file of the catalogues it reads instead of parsing them.
-- A file rewritten within the same second with the same size keeps the previous entry, which
-  the documentation says, with the command that empties the pool.
-- A shared pool needs nothing more on several servers: an entry only matches the file it was
-  written for.
+- A request reads and hashes every file of the catalogues it reads instead of parsing them.
+- A shared pool needs nothing more, on several servers or between releases: an entry only
+  matches the content it was parsed from.
 - What the scanner stores changes only with a new format version in the key.
 
 ## Related

@@ -26,9 +26,9 @@ use Symfony\Contracts\Service\ResetInterface;
  *
  * Everything is memoized for the lifetime of the service (one request / one CLI run):
  * browsing triggers several reads of the same catalogue in a row. Under that memo, each
- * parsed file is kept in a persistent pool (translation_files_cache), keyed by its path,
- * date of modification and size, so a new process stats the files instead of parsing them
- * again. The walk of the directories is never cached: a file added or removed is seen at
+ * parsed file is kept in a persistent pool (translation_files_cache), keyed by its path
+ * and a hash of its content, so a new process reads and hashes the files instead of parsing
+ * them again. The walk of the directories is never cached: a file added or removed is seen at
  * once. The memo is dropped between two Messenger messages (kernel.reset), so a worker
  * sees an edited file.
  */
@@ -352,6 +352,14 @@ final class TranslationFileScanner implements ResetInterface
             return $this->fileCache[$file['path']];
         }
 
+        // Checked here, not left to the loaders: the JSON one reads an unreadable file as empty.
+        // Never cached: a chmod or a chown changes nothing a cache key could see.
+        if (!is_readable($file['path'])) {
+            $this->ignoredFiles[$file['path']] = 'The file cannot be read: check its permissions.';
+
+            return $this->fileCache[$file['path']] = [];
+        }
+
         $parsed = null;
         if (null !== $this->filesCache && null !== $key = $this->persistentKey($file['path'])) {
             $parsed = $this->filesCache->get($key, fn (): array => $this->parseFile($file));
@@ -368,21 +376,19 @@ final class TranslationFileScanner implements ResetInterface
     }
 
     /**
-     * Two writes within the same second rarely leave the same size, and paths differing
-     * between releases only miss the cache. Null when the file's metadata cannot be read: it
-     * is then parsed, and fails, as if there were no cache.
+     * The content, not the date of modification: a build may freeze the dates, and a pool
+     * shared between releases deployed under the same path would serve the previous content.
+     * Null when the file cannot be read: it is then parsed as if there were no cache.
      */
     private function persistentKey(string $path): ?string
     {
-        // A long-running process would otherwise be answered from PHP's stat cache.
-        clearstatcache(true, $path);
-        $stat = @stat($path);
+        $content = @file_get_contents($path);
 
-        if (false === $stat) {
+        if (false === $content) {
             return null;
         }
 
-        return 'file_'.hash('xxh128', self::CACHE_FORMAT."\0".$path."\0".$stat['mtime']."\0".$stat['size']);
+        return 'file_'.hash('xxh128', self::CACHE_FORMAT."\0".$path."\0".$content);
     }
 
     /**

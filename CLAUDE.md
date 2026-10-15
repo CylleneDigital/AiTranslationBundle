@@ -157,12 +157,11 @@ facade - is in the records 0016, 0017, 0022 and 0023: read them before "fixing" 
   and prints a decimal comma on a French server.
 - `TranslationFileScanner` keeps each parsed file in the pool
   `cyllene_digital_ai_translation.translation_files_cache` (adapter `cache.app`, 7 days), keyed
-  by its path, date of modification, size and `CACHE_FORMAT`: a change to what `parseFile()`
+  by its path, a hash of its content and `CACHE_FORMAT`: a change to what `parseFile()`
   returns bumps `CACHE_FORMAT`, or hosts are served the old shape until their entries expire.
   The walk of the directories is never cached, and the scanner is reset between two Messenger
-  messages ([0027](docs/adr/0027-parsed-files-cached-by-fingerprint.md)). The test kernels
-  share that pool on the filesystem: a test rewriting a fixture in place within the same second
-  and at the same size reads the previous entry.
+  messages. A file that cannot be read is reported, never cached
+  ([0027](docs/adr/0027-parsed-files-cached-by-fingerprint.md)).
 - `TranslationSuggestionRepository::transactional()` is hand-made on purpose:
   `EntityManager::wrapInTransaction()` closes the host's entity manager on any exception, a
   refused approval included ([0015](docs/adr/0015-hand-made-transactions.md)).

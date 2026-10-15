@@ -34,8 +34,8 @@ cyllene_digital_ai_translation:
 
     # Keeps each parsed translation file in the
     # "cyllene_digital_ai_translation.translation_files_cache" pool, keyed by its
-    # path, date of modification and size: a new process stats the files instead
-    # of parsing them again. false = parse them in every new process. See
+    # path and a hash of its content: a new process reads and hashes the files
+    # instead of parsing them again. false = parse them in every new process. See
     # operations/cache.md.
     translation_files_cache: true
 

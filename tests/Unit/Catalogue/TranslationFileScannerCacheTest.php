@@ -11,13 +11,11 @@ use Symfony\Component\Filesystem\Filesystem;
 
 /**
  * The parsed files outlive the process (translation_files_cache): a new scanner on the same
- * pool reads a file again only when its date of modification or its size changed. Each
- * "new process" below is a new scanner instance on a shared pool.
+ * pool reads a file again only when its content changed. Each "new process" below is a new
+ * scanner instance on a shared pool.
  */
 final class TranslationFileScannerCacheTest extends TestCase
 {
-    private const int MTIME = 1_760_000_000;
-
     private string $dir;
 
     private ArrayAdapter $pool;
@@ -37,34 +35,49 @@ final class TranslationFileScannerCacheTest extends TestCase
     public function testANewProcessIsServedTheFileWithoutParsingItAgain(): void
     {
         $this->write('messages.fr.json', '{"app.title":"one"}');
-        self::assertSame(['app.title' => 'one'], $this->scanner()->getMessages('messages', 'fr'));
-
-        // Same date, same size, other content: only a cached read still says "one".
-        $this->write('messages.fr.json', '{"app.title":"two"}');
-
-        self::assertSame(['app.title' => 'one'], $this->scanner()->getMessages('messages', 'fr'));
-        self::assertSame(['app.title' => 'two'], (new TranslationFileScanner($this->dir))->getMessages('messages', 'fr'));
-    }
-
-    public function testAFileWhoseDateChangedIsParsedAgain(): void
-    {
-        $this->write('messages.fr.json', '{"app.title":"one"}');
         $this->scanner()->getMessages('messages', 'fr');
 
-        $this->write('messages.fr.json', '{"app.title":"two"}', self::MTIME + 1);
+        // Only a read from the pool can return what the file does not say.
+        $keys = array_keys($this->pool->getValues());
+        self::assertCount(1, $keys);
+        $item = $this->pool->getItem($keys[0]);
+        $this->pool->save($item->set(['messages' => ['app.title' => 'from the pool'], 'error' => null]));
+
+        self::assertSame(['app.title' => 'from the pool'], $this->scanner()->getMessages('messages', 'fr'));
+    }
+
+    /** A build that freezes the dates, a release deployed under the same path: same date, same size. */
+    public function testAFileWhoseContentChangedIsParsedAgainWhateverItsDateAndSize(): void
+    {
+        $this->write('messages.fr.json', '{"app.title":"one"}');
+        touch($this->dir.'/messages.fr.json', 1_760_000_000);
+        $this->scanner()->getMessages('messages', 'fr');
+
+        $this->write('messages.fr.json', '{"app.title":"two"}');
+        touch($this->dir.'/messages.fr.json', 1_760_000_000);
 
         self::assertSame(['app.title' => 'two'], $this->scanner()->getMessages('messages', 'fr'));
     }
 
-    /** Two writes within the same second: the size tells them apart. */
-    public function testAFileWhoseSizeChangedIsParsedAgain(): void
+    /** A chmod or a chown changes neither the content nor the date: the error is not cached. */
+    public function testAFileMadeReadableAgainIsReadByTheNextProcess(): void
     {
         $this->write('messages.fr.json', '{"app.title":"one"}');
-        $this->scanner()->getMessages('messages', 'fr');
+        chmod($this->dir.'/messages.fr.json', 0o000);
 
-        $this->write('messages.fr.json', '{"app.title":"three"}');
+        if (is_readable($this->dir.'/messages.fr.json')) {
+            self::markTestSkipped('The file stays readable (running as root).');
+        }
 
-        self::assertSame(['app.title' => 'three'], $this->scanner()->getMessages('messages', 'fr'));
+        $scanner = $this->scanner();
+        self::assertSame([], $scanner->getMessages('messages', 'fr'));
+        self::assertSame([$this->dir.'/messages.fr.json' => 'The file cannot be read: check its permissions.'], $scanner->getIgnoredFiles());
+
+        chmod($this->dir.'/messages.fr.json', 0o644);
+        $scanner = $this->scanner();
+
+        self::assertSame(['app.title' => 'one'], $scanner->getMessages('messages', 'fr'));
+        self::assertSame([], $scanner->getIgnoredFiles());
     }
 
     public function testAnUnparseableFileIsStillReportedWhenServedFromTheCache(): void
@@ -85,7 +98,7 @@ final class TranslationFileScannerCacheTest extends TestCase
         $scanner = $this->scanner();
         $scanner->getMessages('messages', 'fr');
 
-        $this->write('messages.fr.json', '{"app.title":"two"}', self::MTIME + 1);
+        $this->write('messages.fr.json', '{"app.title":"two"}');
         $this->write('messages.de.json', '{"app.title":"eins"}');
         self::assertSame(['app.title' => 'one'], $scanner->getMessages('messages', 'fr'), 'Memoized until the reset.');
 
@@ -100,9 +113,8 @@ final class TranslationFileScannerCacheTest extends TestCase
         return new TranslationFileScanner($this->dir, filesCache: $this->pool);
     }
 
-    private function write(string $name, string $content, int $mtime = self::MTIME): void
+    private function write(string $name, string $content): void
     {
         file_put_contents($this->dir.'/'.$name, $content);
-        touch($this->dir.'/'.$name, $mtime);
     }
 }
