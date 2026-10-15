@@ -284,17 +284,27 @@ final class OverrideWriter
         return [\count($pending), \count($removals)];
     }
 
+    /**
+     * Two removals of the same key at once (two admins resetting the same entry) delete
+     * one row: the row is read locked, so the second one waits for the first, finds
+     * nothing, and neither invalidates nor announces anything. Read without the lock,
+     * both found the row, and the host purged and notified twice for one removal.
+     */
     public function remove(string $key, string $catalogue, string $locale, string $scope = ''): void
     {
-        $override = $this->repository->findOneByKey($key, $catalogue, $locale, $scope);
+        $this->withEffectsAfter(fn () => $this->suggestionRepository->transactional(function () use ($key, $catalogue, $locale, $scope): void {
+            $override = $this->repository->lockOneByKey($key, $catalogue, $locale, $scope);
 
-        if (null !== $override) {
+            if (null === $override) {
+                return;
+            }
+
             $this->repository->remove($override);
             $this->applyEffect(function () use ($key, $catalogue, $locale, $scope): void {
                 $this->cacheManager->invalidate($locale);
                 $this->eventDispatcher->dispatch(new OverrideRemovedEvent($key, $catalogue, $locale, $scope));
             });
-        }
+        }));
     }
 
     /**

@@ -97,7 +97,9 @@ method name is fine, a rename supersedes nothing), this file does.
   review, an override closing the pending suggestions of its key, a retry closing an errored
   one — re-reads it in the database, rows locked (`lockStillPending()`,
   `lockPendingByKeys()`): the identity map does not refresh an entity loaded earlier
-  ([0013](docs/adr/0013-stale-entities-never-decide.md)).
+  ([0013](docs/adr/0013-stale-entities-never-decide.md)). The same goes for removing an
+  override (`OverrideWriter::remove()`, through `lockOneByKey()`): of two removals of one key,
+  the second finds nothing and announces nothing.
 - **A batch is decided against the state it leaves** (`OverrideReader::planChanges()`): an
   import or a batch approval that changes a parent (the global value, the parent language's)
   compares the children with the new value, not the stored one — and reads only the rows of
