@@ -55,7 +55,8 @@ default).
 | Not cached | The walk of the directories: a file added or removed is seen on the next request. A file that cannot be read: once readable again, it is read on the next request |
 | Long-running processes | The scanner is reset between two Messenger messages (`kernel.reset`): a worker sees an edited file without a restart |
 
-To empty the pool:
+A new release of the translation component that parses a file differently is only seen once
+the entry expires: empty the pool with
 `bin/console cache:pool:clear cyllene_digital_ai_translation.translation_files_cache`.
 `cache:clear` is not enough when `APP_SHARE_DIR` is set, as the Symfony 7.4 and 8 skeletons do
 (`var/share`): the filesystem `cache.app`, and this pool with it, then lives in that directory,
