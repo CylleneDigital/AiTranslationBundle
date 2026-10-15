@@ -86,6 +86,7 @@ final readonly class OverrideReader
         foreach ($translations as &$entries) {
             ksort($entries);
         }
+        unset($entries);
 
         return $translations;
     }
