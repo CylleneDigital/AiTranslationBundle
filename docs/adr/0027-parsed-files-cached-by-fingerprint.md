@@ -36,7 +36,9 @@ is reset between two Messenger messages.
 - A request reads and hashes every file of the catalogues it reads instead of parsing them.
 - A shared pool needs nothing more, on several servers or between releases: an entry only
   matches the content it was parsed from.
-- What the scanner stores changes only with a new format version in the key.
+- What the scanner stores changes only with a new format version in the key. The version of
+  the loaders is not part of it: a parsing change in a new release of the translation
+  component is served once its entries expire, or the pool is emptied.
 
 ## Related
 

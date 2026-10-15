@@ -38,7 +38,7 @@ final class TranslationFileScanner implements ResetInterface
 
     private const string INTL_ICU_SUFFIX = '+intl-icu';
 
-    /** Part of every persistent cache key: bump it when what loadFile() returns changes. */
+    /** Part of every persistent cache key: bump it when what parseFile() returns changes. */
     private const int CACHE_FORMAT = 1;
 
     /** @var array<string, TranslationCatalogue>|null identifier => catalogue, sorted */
