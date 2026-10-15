@@ -9,6 +9,7 @@ use CylleneDigital\AiTranslationBundle\Bridge\CappedRetryStrategy;
 use CylleneDigital\AiTranslationBundle\Bridge\DeeplProvider;
 use CylleneDigital\AiTranslationBundle\Bridge\DefaultProvider;
 use CylleneDigital\AiTranslationBundle\Bridge\OpenAiProvider;
+use CylleneDigital\AiTranslationBundle\Catalogue\TranslationFileScanner;
 use CylleneDigital\AiTranslationBundle\DependencyInjection\DefaultProviderPass;
 use CylleneDigital\AiTranslationBundle\Estimation\ModelPriceProvider;
 use CylleneDigital\AiTranslationBundle\Message\GenerateSuggestionsMessage;
@@ -41,6 +42,11 @@ final class CylleneDigitalAiTranslationBundle extends AbstractBundle
      */
     private const string DOCTRINE_TRANSPORT_FACTORY = 'Symfony\\Component\\Messenger\\Bridge\\Doctrine\\Transport\\DoctrineTransportFactory';
 
+    private const string FILES_CACHE_POOL = 'cyllene_digital_ai_translation.translation_files_cache';
+
+    /** An entry is orphaned, never deleted, when its file changes: the lifetime bounds them. */
+    private const int FILES_CACHE_LIFETIME = 604800;
+
     protected string $extensionAlias = 'cyllene_digital_ai_translation';
 
     public function getPath(): string
@@ -59,7 +65,7 @@ final class CylleneDigitalAiTranslationBundle extends AbstractBundle
     }
 
     /**
-     * @param array{default_provider: ?string, translations_path: string, additional_paths: array<string, string>, default_locale: ?string, coverage_cache_ttl: ?int, llm_context: ?string, model_prices_url: string|false, generation_lock_ttl: int, messenger_transport_dsn: string, providers: array<string, array{type: string, api_key: ?string, model: ?string, base_uri: ?string, workspace_id: ?string, organization: ?string, project: ?string, structured_output: ?bool, timeout: ?int}>} $config
+     * @param array{default_provider: ?string, translations_path: string, additional_paths: array<string, string>, default_locale: ?string, coverage_cache_ttl: ?int, translation_files_cache: bool, llm_context: ?string, model_prices_url: string|false, generation_lock_ttl: int, messenger_transport_dsn: string, providers: array<string, array{type: string, api_key: ?string, model: ?string, base_uri: ?string, workspace_id: ?string, organization: ?string, project: ?string, structured_output: ?bool, timeout: ?int}>} $config
      */
     public function loadExtension(array $config, ContainerConfigurator $container, ContainerBuilder $builder): void
     {
@@ -73,6 +79,9 @@ final class CylleneDigitalAiTranslationBundle extends AbstractBundle
             ->set('cyllene_digital_ai_translation.generation_lock_ttl', $config['generation_lock_ttl'])
             ->set('cyllene_digital_ai_translation.model_prices_url', $config['model_prices_url'])
             ->set('cyllene_digital_ai_translation.default_provider', $config['default_provider'] ?? array_key_first($config['providers']));
+
+        $builder->getDefinition(TranslationFileScanner::class)
+            ->setArgument('$filesCache', $config['translation_files_cache'] ? new Reference(self::FILES_CACHE_POOL) : null);
 
         // A retrying client shared by all bridges: rate limits (429), an unavailable
         // provider (503) and Anthropic's "overloaded" (529) are retried twice with exponential backoff before failing the
@@ -132,6 +141,22 @@ final class CylleneDigitalAiTranslationBundle extends AbstractBundle
                     ],
                     'routing' => [
                         GenerateSuggestionsMessage::class => 'cyllene_ai_translation',
+                    ],
+                ],
+            ]);
+        }
+
+        // Declared whether translation_files_cache is on or not (prepend runs before the
+        // config is processed): an unused pool costs nothing. A host's own entry for the
+        // same pool is merged over this one, so it can change the adapter or the lifetime.
+        if ($builder->hasExtension('framework')) {
+            $builder->prependExtensionConfig('framework', [
+                'cache' => [
+                    'pools' => [
+                        self::FILES_CACHE_POOL => [
+                            'adapter' => 'cache.app',
+                            'default_lifetime' => self::FILES_CACHE_LIFETIME,
+                        ],
                     ],
                 ],
             ]);

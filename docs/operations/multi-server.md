@@ -34,6 +34,11 @@ workers only see the change once their `cache.app` entry is gone.
 The same applies to the coverage report cache (`coverage_cache_ttl`), which lives in the same
 pool.
 
+The parsed translation files (`translation_files_cache`) are kept in a pool of their own,
+built on `cache.app` by default. Shared or not, nothing goes wrong: the key holds each
+file's path, date of modification and size, so a node only reads entries written for the file
+it has, and releases deployed under different paths simply miss each other's entries.
+
 Symfony's compiled catalogues (`kernel.cache_dir/translations`) are node-local too, but the
 bundle never touches them: they hold the file translations, never the overrides, which are
 applied on top at runtime.

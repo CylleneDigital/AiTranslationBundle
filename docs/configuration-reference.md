@@ -32,6 +32,13 @@ cyllene_digital_ai_translation:
     # coverage command always recounts from scratch, whatever this setting.
     coverage_cache_ttl:   null
 
+    # Keeps each parsed translation file in the
+    # "cyllene_digital_ai_translation.translation_files_cache" pool, keyed by its
+    # path, date of modification and size: a new process stats the files instead
+    # of parsing them again. false = parse them in every new process. See
+    # operations/cache.md.
+    translation_files_cache: true
+
     # Additional translation roots (label => directory), browsed as "@label/…"
     # catalogues, e.g. the translations/ of theme packages. Within a domain, a
     # "@label" override takes precedence over the main root's (as theme files do
@@ -138,6 +145,22 @@ cyllene_digital_ai_translation:
   the unknown name then fails on the first generation, with the list of available providers.
   Left unset, it falls back to the first entry of `providers`, or to the custom provider when
   it is the only one.
+- **`translation_files_cache`** stores into the pool
+  `cyllene_digital_ai_translation.translation_files_cache`, which the bundle declares with
+  `adapter: cache.app` and `default_lifetime: 604800` (7 days). A host entry for the same pool
+  under `framework.cache.pools` is merged over it, so either can be changed there:
+
+  ```yaml
+  # config/packages/framework.yaml
+  framework:
+      cache:
+          pools:
+              cyllene_digital_ai_translation.translation_files_cache:
+                  adapter: cache.adapter.php_files   # read back through opcache
+  ```
+
+  `bin/console cache:pool:clear cyllene_digital_ai_translation.translation_files_cache`
+  empties it alone.
 - **`providers` may stay empty**: the override workflow works without AI; the interactive
   console's generation entry explains that no provider is configured, and a host surface
   listing suggestions can show its own warning.

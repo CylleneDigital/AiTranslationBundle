@@ -26,6 +26,8 @@ page name against the code: a rename goes red until the page, and `UPGRADE.md`, 
 
 - **The configuration tree** under `cyllene_digital_ai_translation`: every key of the
   [configuration reference](configuration-reference.md), its type and its default.
+- **The cache pool `cyllene_digital_ai_translation.translation_files_cache`**: the name a
+  host's `framework.cache.pools` entry uses to change its adapter or lifetime.
 - **The Messenger transport `cyllene_ai_translation`**, and the routing of
   `GenerateSuggestionsMessage` to it: what a host's `messenger:consume` and an integration's
   worker configuration name.

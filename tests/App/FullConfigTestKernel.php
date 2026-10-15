@@ -35,6 +35,7 @@ final class FullConfigTestKernel extends TestKernel implements CompilerPassInter
             ],
             'default_locale' => 'en',
             'coverage_cache_ttl' => 60,
+            'translation_files_cache' => false,
             'llm_context' => 'An online shop.',
             'model_prices_url' => false,
             'generation_lock_ttl' => 600,
