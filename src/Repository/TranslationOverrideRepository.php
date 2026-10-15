@@ -8,6 +8,7 @@ use CylleneDigital\AiTranslationBundle\Entity\TranslationOverride;
 use CylleneDigital\AiTranslationBundle\Locale\LocaleFallback;
 use CylleneDigital\AiTranslationBundle\Transfer\OverrideExportFilter;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
+use Doctrine\DBAL\LockMode;
 use Doctrine\ORM\QueryBuilder;
 use Doctrine\Persistence\ManagerRegistry;
 
@@ -57,6 +58,30 @@ class TranslationOverrideRepository extends ServiceEntityRepository
     public function findOneByKey(string $key, string $catalogue, string $locale, string $scope = ''): ?TranslationOverride
     {
         return $this->findOneBy(['key' => $key, 'catalogue' => $catalogue, 'locale' => $locale, 'scope' => $scope]);
+    }
+
+    /**
+     * The override of this key IN DATABASE, its row locked until the end of the caller's
+     * transaction: a concurrent removal of the same key waits for this one, then finds
+     * nothing, instead of deleting the row a second time and announcing it twice.
+     */
+    public function lockOneByKey(string $key, string $catalogue, string $locale, string $scope = ''): ?TranslationOverride
+    {
+        /** @var TranslationOverride|null $override */
+        $override = $this->createQueryBuilder('t')
+            ->andWhere('t.key = :key')
+            ->andWhere('t.catalogue = :catalogue')
+            ->andWhere('t.locale = :locale')
+            ->andWhere('t.scope = :scope')
+            ->setParameter('key', $key)
+            ->setParameter('catalogue', $catalogue)
+            ->setParameter('locale', $locale)
+            ->setParameter('scope', $scope)
+            ->getQuery()
+            ->setLockMode(LockMode::PESSIMISTIC_WRITE)
+            ->getOneOrNullResult();
+
+        return $override;
     }
 
     /**

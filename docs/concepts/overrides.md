@@ -130,4 +130,6 @@ names it; an orphan catalogue is not judged.
   promotion between environments).
 - **Events**: every save/remove dispatches `OverrideSavedEvent` / `OverrideRemovedEvent`,
   the hook point for side effects the bundle cannot know about (HTTP cache purge, audit log,
-  webhook…).
+  webhook…). A removal reads the row locked, in its own transaction: two removals of the same
+  key at once (two admins resetting the same entry) delete one row and dispatch one event,
+  the second one finding nothing to remove.
