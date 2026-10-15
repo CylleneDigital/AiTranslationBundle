@@ -26,10 +26,11 @@ use Symfony\Contracts\Service\ResetInterface;
  *
  * Everything is memoized for the lifetime of the service (one request / one CLI run):
  * browsing triggers several reads of the same catalogue in a row. Under that memo, each
- * parsed file is kept in a persistent pool (translation_files_cache) keyed by its path, date of modification and
- * size, so a new process stats the files instead of parsing them again. The walk of the
- * directories is never cached: a file added or removed is seen at once. The memo is
- * dropped between two Messenger messages (kernel.reset), so a worker sees an edited file.
+ * parsed file is kept in a persistent pool (translation_files_cache), keyed by its path,
+ * date of modification and size, so a new process stats the files instead of parsing them
+ * again. The walk of the directories is never cached: a file added or removed is seen at
+ * once. The memo is dropped between two Messenger messages (kernel.reset), so a worker
+ * sees an edited file.
  */
 final class TranslationFileScanner implements ResetInterface
 {
@@ -368,8 +369,8 @@ final class TranslationFileScanner implements ResetInterface
 
     /**
      * Two writes within the same second rarely leave the same size, and paths differing
-     * between releases only miss the cache. Null when the file cannot be stat'ed: it is then
-     * parsed, and fails, as if there were no cache.
+     * between releases only miss the cache. Null when the file's metadata cannot be read: it
+     * is then parsed, and fails, as if there were no cache.
      */
     private function persistentKey(string $path): ?string
     {
