@@ -103,7 +103,11 @@ Three protections bound the billing of a run, on top of batching:
   first flush, or store suggestions no approval can ever apply (a malformed locale is never
   an override). A scope the host does not declare is refused the same way, when the host
   declares scopes: a message queued for a channel deleted since bills nothing. It has not
-  started: it is not journaled, and the caller gets the exception. The CLI already refuses
+  started: it is not journaled, and the caller gets the exception. The scope is checked
+  again before every batch: a run whose channel is deleted meanwhile stops before its next
+  batch, reserves nothing more, is journaled as a failure and throws the same exception.
+  This relies on the host's scope provider reading the current list, not one kept in memory
+  for the life of the worker. The CLI already refuses
   unknown locales, catalogues and scopes upstream; this guards the PHP API and
   `GenerateSuggestionsMessage`.
 
