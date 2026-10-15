@@ -29,7 +29,8 @@ final readonly class ScopePurger
     /**
      * Deletes the overrides, the suggestions and the parameters of one scope, in a
      * transaction of its own: call it once the scope is gone (after the host's deletion is
-     * committed), not inside the host's transaction. The overrides go through the writer,
+     * committed), not inside the host's transaction nor from a Doctrine postRemove
+     * listener, which runs inside the flush. The overrides go through the writer,
      * one OverrideRemovedEvent each, and the cache invalidation and the events follow the
      * commit. The suggestions are deleted whatever their status, without events: a pending
      * one of a deleted scope is nobody's decision any more.
