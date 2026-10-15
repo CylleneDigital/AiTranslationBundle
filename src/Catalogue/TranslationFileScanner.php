@@ -10,6 +10,8 @@ use Symfony\Component\Translation\Loader\JsonFileLoader;
 use Symfony\Component\Translation\Loader\LoaderInterface;
 use Symfony\Component\Translation\Loader\XliffFileLoader;
 use Symfony\Component\Translation\Loader\YamlFileLoader;
+use Symfony\Contracts\Cache\CacheInterface;
+use Symfony\Contracts\Service\ResetInterface;
 
 /**
  * Reads the host project's translations/ directory — the single source of the
@@ -23,13 +25,20 @@ use Symfony\Component\Translation\Loader\YamlFileLoader;
  * getIgnoredFiles().
  *
  * Everything is memoized for the lifetime of the service (one request / one CLI run):
- * browsing triggers several reads of the same catalogue in a row.
+ * browsing triggers several reads of the same catalogue in a row. Under that memo, each
+ * parsed file is kept in a persistent pool (translation_files_cache) keyed by its path, date of modification and
+ * size, so a new process stats the files instead of parsing them again. The walk of the
+ * directories is never cached: a file added or removed is seen at once. The memo is
+ * dropped between two Messenger messages (kernel.reset), so a worker sees an edited file.
  */
-final class TranslationFileScanner
+final class TranslationFileScanner implements ResetInterface
 {
     private const array SUPPORTED_EXTENSIONS = ['yaml', 'yml', 'xlf', 'xliff', 'json'];
 
     private const string INTL_ICU_SUFFIX = '+intl-icu';
+
+    /** Part of every persistent cache key: bump it when what loadFile() returns changes. */
+    private const int CACHE_FORMAT = 1;
 
     /** @var array<string, TranslationCatalogue>|null identifier => catalogue, sorted */
     private ?array $catalogues = null;
@@ -57,13 +66,24 @@ final class TranslationFileScanner
 
     /**
      * @param array<string, string> $additionalPaths label => directory, browsed as "@label/…"
+     * @param CacheInterface|null   $filesCache      null when translation_files_cache is off
      */
     public function __construct(
         #[Autowire(param: 'cyllene_digital_ai_translation.translations_path')]
         private readonly string $translationsPath,
         #[Autowire(param: 'cyllene_digital_ai_translation.additional_paths')]
         private readonly array $additionalPaths = [],
+        private readonly ?CacheInterface $filesCache = null,
     ) {
+    }
+
+    public function reset(): void
+    {
+        $this->catalogues = null;
+        $this->files = [];
+        $this->ignoredFiles = [];
+        $this->messagesCache = [];
+        $this->fileCache = [];
     }
 
     /**
@@ -331,13 +351,51 @@ final class TranslationFileScanner
             return $this->fileCache[$file['path']];
         }
 
+        $parsed = null;
+        if (null !== $this->filesCache && null !== $key = $this->persistentKey($file['path'])) {
+            $parsed = $this->filesCache->get($key, fn (): array => $this->parseFile($file));
+        }
+        $parsed ??= $this->parseFile($file);
+
+        // Recorded on every load, the cached ones included: an unparseable file stays
+        // reported for as long as it is unparseable, not only by the process that parsed it.
+        if (null !== $parsed['error']) {
+            $this->ignoredFiles[$file['path']] = $parsed['error'];
+        }
+
+        return $this->fileCache[$file['path']] = $parsed['messages'];
+    }
+
+    /**
+     * Two writes within the same second rarely leave the same size, and paths differing
+     * between releases only miss the cache. Null when the file cannot be stat'ed: it is then
+     * parsed, and fails, as if there were no cache.
+     */
+    private function persistentKey(string $path): ?string
+    {
+        // A long-running process would otherwise be answered from PHP's stat cache.
+        clearstatcache(true, $path);
+        $stat = @stat($path);
+
+        if (false === $stat) {
+            return null;
+        }
+
+        return 'file_'.hash('xxh128', self::CACHE_FORMAT."\0".$path."\0".$stat['mtime']."\0".$stat['size']);
+    }
+
+    /**
+     * @param array{path: string, locale: string, intlIcu: bool, extension: string} $file
+     *
+     * @return array{messages: array<string, string>, error: ?string}
+     */
+    private function parseFile(array $file): array
+    {
         try {
             $catalogue = $this->getLoader($file['extension'])->load($file['path'], $file['locale'], 'messages');
         } catch (\Throwable $e) {
-            $this->ignoredFiles[$file['path']] = \sprintf('The file could not be parsed: %s', $e->getMessage());
-
-            // Memoised too: an unparseable file must not be retried on every lookup.
-            return $this->fileCache[$file['path']] = [];
+            // Kept like a parsed file: an unparseable file must not be retried on every lookup.
+            return ['messages' => [], 'error' => \sprintf('The file could not be parsed: %s', $e->getMessage())];
         }
 
         $messages = [];
@@ -347,7 +405,7 @@ final class TranslationFileScanner
             }
         }
 
-        return $this->fileCache[$file['path']] = $messages;
+        return ['messages' => $messages, 'error' => null];
     }
 
     private function getLoader(string $extension): LoaderInterface

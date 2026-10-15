@@ -2,7 +2,8 @@
 
 Two layers sit between a stored override and the text on screen. Both are invalidated
 **automatically** on every save/remove; this page is mostly here to explain what happens and
-to know when to step in manually.
+to know when to step in manually. A third one, under the bundle's own screens and commands,
+keeps the parsed translation files: see [The parsed translation files](#the-parsed-translation-files).
 
 ## The layers
 
@@ -36,6 +37,29 @@ query per (locale, scope) per hour).
   override would keep serving the pre-write value until it exits.
 - **Direct writes bypassing `OverrideWriter`** (raw SQL, a fixture): no event is dispatched, so
   the in-memory map of an already-running process is not dropped either (see the entry above).
+
+## The parsed translation files
+
+The bundle reads the host's translation files itself, to list the catalogues, compare the
+locales and find the missing keys: the translator's compiled catalogues mix in the framework's
+and the other bundles' messages. Parsing them is most of the time of a view over every
+catalogue, so each parsed file is kept in the pool
+`cyllene_digital_ai_translation.translation_files_cache` (`translation_files_cache: true`, the
+default).
+
+| What | How |
+| --- | --- |
+| Key | The file's path, its date of modification and its size, and a format version the bundle bumps when it changes what it stores |
+| Invalidation | None needed: a file that changes gets a new key, the old entry is orphaned |
+| Lifetime | 7 days (`default_lifetime` of the pool), which bounds the orphaned entries |
+| Not cached | The walk of the directories: a file added or removed is seen on the next request |
+| Long-running processes | The scanner is reset between two Messenger messages (`kernel.reset`): a worker sees an edited file without a restart |
+
+A file rewritten within the same second **with the same size** keeps the previous entry: touch
+it, or empty the pool with
+`bin/console cache:pool:clear cyllene_digital_ai_translation.translation_files_cache`. Changing
+the adapter or the lifetime: see the [configuration reference](../configuration-reference.md#notes).
+To parse the files in every new process instead, set `translation_files_cache: false`.
 
 ## What the bundle does not touch
 
