@@ -35,7 +35,9 @@ the effects after the commit. The global scope is refused. The generation journa
 - A purge that fails after the host's deletion leaves dead rows: the cleanup command finds
   the scopes stored but no longer declared, and purges them.
 - A run of that scope still with the provider finds its reserved rows gone, and stores
-  nothing ([0024](0024-keys-reserved-before-the-provider-is-called.md)).
+  nothing ([0024](0024-keys-reserved-before-the-provider-is-called.md)). It checks the scope
+  again before every batch, and stops there: the batches left are neither reserved nor
+  billed.
 - Deleting a pending suggestion with its scope dispatches no rejection event: nobody
   rejected it.
 

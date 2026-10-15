@@ -32,6 +32,7 @@ use CylleneDigital\AiTranslationBundle\Repository\TranslationOverrideRepository;
 use CylleneDigital\AiTranslationBundle\Repository\TranslationSuggestionRepository;
 use CylleneDigital\AiTranslationBundle\Scope\NullScopeProvider;
 use CylleneDigital\AiTranslationBundle\Scope\ScopeParametersManager;
+use CylleneDigital\AiTranslationBundle\Scope\ScopeProviderInterface;
 use CylleneDigital\AiTranslationBundle\Scope\ScopeRegistry;
 use CylleneDigital\AiTranslationBundle\Suggestion\GenerationLock;
 use CylleneDigital\AiTranslationBundle\Suggestion\GenerationOutcome;
@@ -433,6 +434,58 @@ final class TranslationAiServiceTest extends TestCase
         self::assertCount(2, $this->providerCalls);
         self::assertArrayNotHasKey('k21', $this->providerCalls[1]);
         self::assertArrayNotHasKey('k21', $this->stagedRowsByKey());
+    }
+
+    /**
+     * The scope deleted (and purged) while the first batch is with the provider: the run
+     * stops before the second, neither reserved nor sent, and is journaled as a failure.
+     */
+    public function testARunWhoseScopeIsDeletedMeanwhileStopsBeforeItsNextBatch(): void
+    {
+        $messages = [];
+        for ($i = 0; $i < 25; ++$i) {
+            $messages[\sprintf('k%02d', $i)] = \sprintf('V%02d', $i);
+        }
+
+        $scopes = new class implements ScopeProviderInterface {
+            /** @var array<string, string> */
+            public array $available = ['b2b' => 'B2B'];
+
+            public function getScope(): ?string
+            {
+                return null;
+            }
+
+            public function getAvailableScopes(): array
+            {
+                return $this->available;
+            }
+        };
+        $service = $this->createService(
+            frMessages: $messages,
+            enMessages: [],
+            pending: [],
+            translator: static function (string $text) use ($scopes): string {
+                $scopes->available = ['retail' => 'Retail'];
+
+                return 'T-'.$text;
+            },
+            scopeProvider: $scopes,
+        );
+
+        try {
+            $service->generateSuggestions('messages', 'en_US', 'fr_FR', scope: 'b2b');
+            self::fail('The run was expected to stop.');
+        } catch (InvalidOverrideException $e) {
+            self::assertStringContainsString('"b2b" is no longer declared', $e->getMessage());
+        }
+
+        self::assertCount(1, $this->providerCalls);
+        self::assertCount(20, $this->stagedRowsByKey(), 'The keys of the second batch are not reserved.');
+        self::assertCount(1, $this->recordedLogs);
+        self::assertTrue($this->recordedLogs[0]->isFailure());
+        self::assertSame(20, $this->recordedLogs[0]->getSuggestionsCreated(), 'The paid batch is counted.');
+        self::assertSame('b2b', $this->recordedLogs[0]->getScope());
     }
 
     /** An every-key run sends the keys that have a value: one written during the run is no exception. */
@@ -1238,8 +1291,9 @@ final class TranslationAiServiceTest extends TestCase
      * @param \Throwable|null                                                    $providerFailure thrown by the stub provider on every translate() call
      * @param (callable(string, string, string): list<TranslationOverride>)|null $overrides       the stored overrides per (locale, catalogue, scope)
      * @param array<string, string>                                              $scopeContexts   scope => prompt context stored for it
+     * @param ScopeProviderInterface|null                                        $scopeProvider   the host's scopes, none declared by default
      */
-    private function createService(array $frMessages, array $enMessages, array $pending, ?callable $translator = null, ?\Throwable $providerFailure = null, ?callable $overrides = null, array $scopeContexts = [], ?GenerationLock $lock = null): TranslationAiService
+    private function createService(array $frMessages, array $enMessages, array $pending, ?callable $translator = null, ?\Throwable $providerFailure = null, ?callable $overrides = null, array $scopeContexts = [], ?GenerationLock $lock = null, ?ScopeProviderInterface $scopeProvider = null): TranslationAiService
     {
         $localeProvider = $this->createStub(LocaleProviderInterface::class);
         $localeProvider->method('getAvailableLocales')->willReturn(['fr_FR', 'en_US']);
@@ -1346,7 +1400,7 @@ final class TranslationAiServiceTest extends TestCase
                 $validator,
                 $lock ?? new GenerationLock(new LockFactory(new InMemoryStore())),
                 $this->eventDispatcher,
-                new ScopeRegistry(new NullScopeProvider()),
+                new ScopeRegistry($scopeProvider ?? new NullScopeProvider()),
             ),
             new SuggestionReviewer(
                 $this->suggestionRepository,

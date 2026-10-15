@@ -197,6 +197,7 @@ final class SuggestionGenerator
             $created = 0;
             $done = [];
             $invalidReply = null;
+            $scopeGone = false;
 
             // The rows this run creates are let go once it is over: in a long process (the
             // console walking every catalogue, a worker) they would otherwise stay managed
@@ -209,6 +210,16 @@ final class SuggestionGenerator
                     $selectedNow = true;
 
                     foreach ($this->chunkTexts($texts) as $chunk) {
+                        // The scope was checked when the run started: one deleted and purged
+                        // while the earlier batches were with the provider would have every
+                        // next batch reserved and billed for nobody. Checked again before
+                        // every batch but the first; the run stops there, before reserving.
+                        if (!$selectedNow && !$this->scopes->isKnownScope($scope)) {
+                            $scopeGone = true;
+
+                            break;
+                        }
+
                         // The selection was made when the run started: a key given a value
                         // since — an override written while the earlier batches were with the
                         // provider — is nobody's request any more. Read again before every
@@ -274,6 +285,15 @@ final class SuggestionGenerator
                     $this->recordUnexpectedFailure($e, $texts, $done, $new, $errored, $created, $catalogue, $targetLocale, $sourceLocale, $provider->getName(), $scope, $onlyMissing);
 
                     throw $e;
+                }
+
+                // Stopped before a batch: the keys left are not reserved, so no errored row
+                // is left in a scope that is gone. Journaled, as every run that started.
+                if ($scopeGone) {
+                    $error = \sprintf('The scope "%s" is no longer declared by the host: the run stopped before its next batch.', mb_substr($scope, 0, 60));
+                    $this->generationLogRepository->record(GenerationLog::failure($catalogue, $targetLocale, $sourceLocale, $provider->getName(), $error, $created, $scope));
+
+                    throw new InvalidOverrideException($error);
                 }
 
                 // The run went to the end, but some batches came back unusable: still a
