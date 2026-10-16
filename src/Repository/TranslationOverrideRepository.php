@@ -88,20 +88,23 @@ class TranslationOverrideRepository extends ServiceEntityRepository
 
     /**
      * The overrides of these catalogues in one (locale, scope): one query for a whole view,
-     * filtered in SQL — a single catalogue costs what it always cost.
+     * filtered in SQL — a single catalogue costs what it always cost. Scalar rows, not
+     * entities: a view reads thousands of them, and building an entity per row (and
+     * leaving it in the host's unit of work) cost more than the query itself.
      *
      * @param list<string> $catalogues
      *
-     * @return list<TranslationOverride>
+     * @return list<array{key: string, catalogue: string, value: string}>
      */
-    public function findByLocaleAndCatalogues(string $locale, array $catalogues, string $scope = ''): array
+    public function findValuesByLocaleAndCatalogues(string $locale, array $catalogues, string $scope = ''): array
     {
         if ([] === $catalogues) {
             return [];
         }
 
-        /** @var list<TranslationOverride> $result */
-        $result = $this->createQueryBuilder('t')
+        /** @var list<array{key: string, catalogue: string, value: string}> $rows */
+        $rows = $this->createQueryBuilder('t')
+            ->select('t.key', 't.catalogue', 't.value')
             ->andWhere('t.locale = :locale')
             ->andWhere('t.catalogue IN (:catalogues)')
             ->andWhere('t.scope = :scope')
@@ -111,9 +114,9 @@ class TranslationOverrideRepository extends ServiceEntityRepository
             ->orderBy('t.catalogue', 'ASC')
             ->addOrderBy('t.key', 'ASC')
             ->getQuery()
-            ->getResult();
+            ->getArrayResult();
 
-        return $result;
+        return $rows;
     }
 
     /**

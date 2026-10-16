@@ -89,9 +89,9 @@ final class TranslationManagerTest extends TestCase
         $orphan->setValue('Orpheline');
 
         $this->repository
-            ->method('findByLocaleAndCatalogues')
+            ->method('findValuesByLocaleAndCatalogues')
             ->with('fr_FR', ['shop/Product/messages'])
-            ->willReturn([$override, $orphan]);
+            ->willReturn(self::rows($override, $orphan));
 
         $manager = $this->createManager();
         $translations = $manager->getTranslationsForCatalogue('shop/Product/messages', 'fr_FR');
@@ -110,7 +110,7 @@ final class TranslationManagerTest extends TestCase
 
     public function testAKeyOnlyTranslatedInAnotherLanguageIsMissing(): void
     {
-        $this->repository->method('findByLocaleAndCatalogues')->willReturn([]);
+        $this->repository->method('findValuesByLocaleAndCatalogues')->willReturn([]);
 
         $manager = $this->createManager();
 
@@ -215,10 +215,10 @@ final class TranslationManagerTest extends TestCase
         $scoped->setValue('Ajouter au panier (B2B)');
 
         $this->repository
-            ->method('findByLocaleAndCatalogues')
+            ->method('findValuesByLocaleAndCatalogues')
             ->willReturnCallback(static fn (string $locale, array $catalogues, string $scope = ''): array => match ($scope) {
-                '' => [$global],
-                'b2b' => [$scoped],
+                '' => self::rows($global),
+                'b2b' => self::rows($scoped),
                 default => [],
             });
         // What the entry can inherit from — its own b2b row included, set apart by the reader.
@@ -311,5 +311,15 @@ final class TranslationManagerTest extends TestCase
         $repository->method('transactional')->willReturnCallback(static fn (callable $operation): mixed => $operation());
 
         return $repository;
+    }
+
+    /**
+     * What the view reads of these overrides: scalar rows.
+     *
+     * @return list<array{key: string, catalogue: string, value: string}>
+     */
+    private static function rows(TranslationOverride ...$overrides): array
+    {
+        return array_map(static fn (TranslationOverride $override): array => ['key' => $override->getKey(), 'catalogue' => $override->getCatalogue(), 'value' => $override->getValue()], array_values($overrides));
     }
 }

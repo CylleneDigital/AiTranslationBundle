@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace CylleneDigital\AiTranslationBundle\Override;
 
 use CylleneDigital\AiTranslationBundle\Catalogue\TranslationCatalogue;
+use CylleneDigital\AiTranslationBundle\Entity\TranslationOverride;
 use CylleneDigital\AiTranslationBundle\Locale\LocaleFallback;
 use CylleneDigital\AiTranslationBundle\Repository\TranslationOverrideRepository;
 use CylleneDigital\AiTranslationBundle\Scope\ScopeProviderInterface;
@@ -307,7 +308,10 @@ final class OverrideAwareTranslator implements TranslatorInterface, TranslatorBa
             //   3. within a rank, additional-root catalogues ("@label/…" — themes and
             //      friends, whose files also win at runtime) shadow the main root's;
             //   4. catalogue/key order otherwise.
-            usort($overrides, static fn ($a, $b): int => [-LocaleFallback::rank($a->getLocale()), '' === $a->getScope(), !str_starts_with($a->getCatalogue(), '@'), $a->getCatalogue(), $a->getKey()] <=> [-LocaleFallback::rank($b->getLocale()), '' === $b->getScope(), !str_starts_with($b->getCatalogue(), '@'), $b->getCatalogue(), $b->getKey()]);
+            // The sort key of each row is built once: ranking both locales again in every
+            // comparison weighed more than the query on a large locale.
+            $sortKeys = array_map(static fn (TranslationOverride $override): array => [-LocaleFallback::rank($override->getLocale()), '' === $override->getScope(), !str_starts_with($override->getCatalogue(), '@'), $override->getCatalogue(), $override->getKey()], $overrides);
+            uksort($overrides, static fn (int $a, int $b): int => $sortKeys[$a] <=> $sortKeys[$b]);
 
             $result = [];
             /** @var array<string, array<string, string>> $winningLocale domain => key => the locale that answered */

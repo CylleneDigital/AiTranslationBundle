@@ -218,8 +218,11 @@ final class GenerationCostEstimatorTest extends TestCase
         $author->method('getAuthorIdentifier')->willReturn(null);
 
         $overrideRepository = $this->createStub(TranslationOverrideRepository::class);
-        $overrideRepository->method('findByLocaleAndCatalogues')->willReturnCallback(static fn (string $locale, array $catalogues, string $scope = ''): array => null !== $overrides
-            ? array_merge(...array_map(static fn (string $catalogue): array => $overrides($locale, $catalogue, $scope), array_values(array_filter($catalogues, is_string(...)))))
+        $overrideRepository->method('findValuesByLocaleAndCatalogues')->willReturnCallback(static fn (string $locale, array $catalogues, string $scope = ''): array => null !== $overrides
+            ? array_map(
+                static fn (TranslationOverride $override): array => ['key' => $override->getKey(), 'catalogue' => $override->getCatalogue(), 'value' => $override->getValue()],
+                array_merge(...array_map(static fn (string $catalogue): array => $overrides($locale, $catalogue, $scope), array_values(array_filter($catalogues, is_string(...))))),
+            )
             : []);
 
         $suggestionRepository = $this->createStub(TranslationSuggestionRepository::class);
