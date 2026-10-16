@@ -115,8 +115,11 @@ final class TranslationAiServiceTest extends TestCase
             $this->staged[] = $suggestion;
         });
         $this->suggestionRepository->method('findPending')->willReturnCallback(fn (): array => $this->pending);
-        $this->overrideRepository->method('findByLocaleAndCatalogues')->willReturnCallback(fn (string $locale, array $catalogues, string $scope = ''): array => null !== $this->overrides
-            ? array_merge(...array_map(fn (string $catalogue): array => ($this->overrides)($locale, $catalogue, $scope), array_values(array_filter($catalogues, is_string(...)))))
+        $this->overrideRepository->method('findValuesByLocaleAndCatalogues')->willReturnCallback(fn (string $locale, array $catalogues, string $scope = ''): array => null !== $this->overrides
+            ? array_map(
+                static fn (TranslationOverride $override): array => ['key' => $override->getKey(), 'catalogue' => $override->getCatalogue(), 'value' => $override->getValue()],
+                array_merge(...array_map(fn (string $catalogue): array => ($this->overrides)($locale, $catalogue, $scope), array_values(array_filter($catalogues, is_string(...))))),
+            )
             : []);
         // The chain read behind the inherited values, served from the same per-test rows.
         $this->overrideRepository->method('findInheritable')->willReturnCallback(function (array $locales, string $scope, ?array $catalogues = null): array {

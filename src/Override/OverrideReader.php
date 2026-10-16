@@ -67,11 +67,11 @@ final readonly class OverrideReader
             }
         }
 
-        foreach ($this->repository->findByLocaleAndCatalogues($locale, $catalogues, $scope) as $override) {
-            $catalogue = $override->getCatalogue();
-            $key = $override->getKey();
+        foreach ($this->repository->findValuesByLocaleAndCatalogues($locale, $catalogues, $scope) as $row) {
+            $catalogue = $row['catalogue'];
+            $key = $row['key'];
             $translations[$catalogue][$key] ??= $empty;
-            $translations[$catalogue][$key]['override'] = $override->getValue();
+            $translations[$catalogue][$key]['override'] = $row['value'];
             $translations[$catalogue][$key]['hasOverride'] = true;
         }
 
@@ -106,13 +106,21 @@ final readonly class OverrideReader
         $overrides = $this->repository->findForRuntime($locale, $scope);
 
         // Least specific locale first, and within a locale the global rows before the
-        // scope's own ones: the later passes overwrite.
-        usort($overrides, static fn (TranslationOverride $a, TranslationOverride $b): int => [LocaleFallback::rank($a->getLocale()), '' === $a->getScope() ? 0 : 1] <=> [LocaleFallback::rank($b->getLocale()), '' === $b->getScope() ? 0 : 1]);
-
-        $byCatalogue = [];
+        // scope's own ones: the later passes overwrite. Bucketed, not sorted: a comparison
+        // that ranks both locales again weighed more than the query on a large locale.
+        $passes = [];
 
         foreach ($overrides as $override) {
-            $byCatalogue[$override->getCatalogue()][$override->getKey()] = $override->getValue();
+            $passes[LocaleFallback::rank($override->getLocale()) * 2 + ('' === $override->getScope() ? 0 : 1)][] = $override;
+        }
+
+        ksort($passes);
+        $byCatalogue = [];
+
+        foreach ($passes as $pass) {
+            foreach ($pass as $override) {
+                $byCatalogue[$override->getCatalogue()][$override->getKey()] = $override->getValue();
+            }
         }
 
         return $byCatalogue;
@@ -374,12 +382,22 @@ final readonly class OverrideReader
             static fn (array $row): bool => $row['locale'] !== $locale || $row['scope'] !== $scope,
         ));
 
-        usort($rows, static fn (array $a, array $b): int => [-LocaleFallback::rank($a['locale']), '' === $a['scope']] <=> [-LocaleFallback::rank($b['locale']), '' === $b['scope']]);
-
-        $inherited = [];
+        // The more specific locale first, and within a locale the scope's row before the
+        // global one. Bucketed, not sorted: a comparison that ranks both locales again
+        // weighed more than the query on a large locale.
+        $passes = [];
 
         foreach ($rows as $row) {
-            $inherited[$row['catalogue']][(string) $row['key']] ??= ['value' => $row['value'], 'locale' => $row['locale'], 'scope' => $row['scope']];
+            $passes[-LocaleFallback::rank($row['locale']) * 2 + ('' === $row['scope'] ? 1 : 0)][] = $row;
+        }
+
+        ksort($passes);
+        $inherited = [];
+
+        foreach ($passes as $pass) {
+            foreach ($pass as $row) {
+                $inherited[$row['catalogue']][(string) $row['key']] ??= ['value' => $row['value'], 'locale' => $row['locale'], 'scope' => $row['scope']];
+            }
         }
 
         return $inherited;
