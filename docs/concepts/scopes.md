@@ -83,7 +83,8 @@ announced purge. If the call fails, the
 rows stay, and [`purge-scopes`](../operations/commands.md#purge-scopes) catches them later.
 The global scope `''` is refused. A generation message still queued for the deleted scope
 is refused before the provider is called, once the host no longer declares the scope, and a
-run of that scope already started stops before its next batch.
+run of that scope already started stops before its next batch; if the provider fails on the
+batch it had sent, the keys never sent get no errored row under the deleted code.
 `ScopePurger::findStoredScopes()` lists the scopes the bundle stores something for, with
 what each holds. See the [decision record](../adr/0025-a-deleted-scope-is-purged-journal-kept.md).
 
