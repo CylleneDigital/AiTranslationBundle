@@ -162,7 +162,8 @@ and only change in a major version:
   (`InvalidOverrideException`), when the host declares scopes: a message queued for a scope
   deleted since bills nothing. The scope is checked again before every batch: a run whose
   scope is deleted meanwhile stops before its next batch, journaled as a failure, and
-  throws the same exception. Only the batch already with the provider is billed.
+  throws the same exception. Only the batch already with the provider is billed; if that
+  batch fails, the keys never sent get no errored suggestion in the scope that is gone.
 - **A key that has a pending suggestion is not sent**, an errored one included, unless the run
   retries errors.
 - **The keys of a batch are reserved before the provider is called**: stored as errored

@@ -522,7 +522,12 @@ final class SuggestionGenerator
             return;
         }
 
-        $this->suggestionRepository->transactional(function () use ($texts, &$done, &$new, $errored, $error, $catalogue, $targetLocale, $sourceLocale, $providerName, $scope, $onlyMissing): void {
+        // A scope deleted (and purged) while the failing batch was with the provider gets no
+        // new row: a scope created again under its code would find errored suggestions
+        // nobody asked it for, and the purge command no longer sees the code.
+        $scopeKnown = $this->scopes->isKnownScope($scope);
+
+        $this->suggestionRepository->transactional(function () use ($texts, &$done, &$new, $errored, $error, $catalogue, $targetLocale, $sourceLocale, $providerName, $scope, $onlyMissing, $scopeKnown): void {
             // The rows already stored are re-read and locked: one reviewed while the run
             // went on (filled by hand and approved, rejected) is never written over.
             $stillErrored = $this->lockStillPendingByKey(array_intersect_key($errored, $texts));
@@ -535,7 +540,7 @@ final class SuggestionGenerator
                     $this->recordFailure($stillErrored[$key], $error, $providerName, $sourceValue);
                 } elseif (isset($errored[$key])) {
                     $this->logLeftOut('AI translation failure not recorded: the errored suggestion was reviewed while the run went on.', $catalogue, $targetLocale, $scope, $key);
-                } else {
+                } elseif ($scopeKnown) {
                     $failed = $new[] = TranslationSuggestion::failed($key, $catalogue, $targetLocale, $sourceValue, $sourceLocale, $providerName, $error, $scope);
                     $failed->setMetadata([self::ONLY_MISSING => $onlyMissing]);
                     $this->suggestionRepository->saveDeferred($failed);

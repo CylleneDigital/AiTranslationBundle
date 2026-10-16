@@ -488,6 +488,55 @@ final class TranslationAiServiceTest extends TestCase
         self::assertSame('b2b', $this->recordedLogs[0]->getScope());
     }
 
+    /**
+     * The scope deleted (and purged) while the first batch is with the provider, which then
+     * fails: the keys of the batches never sent get no errored row in the scope that is gone.
+     */
+    public function testAProviderFailureAfterTheScopeIsDeletedLeavesNoNewRowInIt(): void
+    {
+        $messages = [];
+        for ($i = 0; $i < 25; ++$i) {
+            $messages[\sprintf('k%02d', $i)] = \sprintf('V%02d', $i);
+        }
+
+        $scopes = new class implements ScopeProviderInterface {
+            /** @var array<string, string> */
+            public array $available = ['b2b' => 'B2B'];
+
+            public function getScope(): ?string
+            {
+                return null;
+            }
+
+            public function getAvailableScopes(): array
+            {
+                return $this->available;
+            }
+        };
+        $service = $this->createService(
+            frMessages: $messages,
+            enMessages: [],
+            pending: [],
+            translator: static function () use ($scopes): string {
+                $scopes->available = ['retail' => 'Retail'];
+
+                throw TranslationProviderException::requestFailed('stub', 'quota exceeded');
+            },
+            scopeProvider: $scopes,
+        );
+
+        try {
+            $service->generateSuggestions('messages', 'en_US', 'fr_FR', scope: 'b2b');
+            self::fail('The run was expected to fail.');
+        } catch (TranslationProviderException) {
+        }
+
+        self::assertCount(1, $this->providerCalls);
+        self::assertCount(20, $this->stagedRowsByKey(), 'Only the reserved keys of the first batch have a row.');
+        self::assertCount(1, $this->recordedLogs);
+        self::assertTrue($this->recordedLogs[0]->isFailure());
+    }
+
     /** An every-key run sends the keys that have a value: one written during the run is no exception. */
     public function testAnEveryKeyRunStillSendsAKeyGivenAValueDuringTheRun(): void
     {
