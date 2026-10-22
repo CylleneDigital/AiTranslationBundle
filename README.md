@@ -12,7 +12,9 @@ in the database and applied on top of your `translations/` files, which are neve
 and **AI suggestions** fill the missing keys, applied only once a human approves them.
 
 It is an **engine without user interface**: a console and a PHP API, on which any application
-can build its own screens.
+can build its own screens. For Sylius, the
+[Sylius AI Translation Plugin](https://github.com/CylleneDigital/SyliusAiTranslationPlugin) builds
+them into the admin panel.
 
 ## Compatibility
 
