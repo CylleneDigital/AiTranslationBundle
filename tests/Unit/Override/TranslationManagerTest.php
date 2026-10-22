@@ -141,7 +141,7 @@ final class TranslationManagerTest extends TestCase
 
     public function testRemoveOverrideIsANoOpWhenNothingIsStored(): void
     {
-        $this->repository->method('findOneByKey')->willReturn(null);
+        $this->repository->method('lockOneByKey')->willReturn(null);
         $this->repository->expects(self::never())->method('remove');
 
         $manager = $this->createManager();

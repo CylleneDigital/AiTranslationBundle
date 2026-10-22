@@ -120,7 +120,10 @@ final class OverrideEditor
                 return OverrideEditOutcome::Untouched;
 
             case OverrideChange::Revert:
-                $this->writer->remove($key, $catalogue, $locale, $scope);
+                if (!$this->writer->remove($key, $catalogue, $locale, $scope)) {
+                    return $this->removedMeanwhile($io);
+                }
+
                 $io->success(\sprintf('Same as %s — override removed for "%s" (%s, %s).', $baselineName, $key, $catalogue, $locale));
 
                 return OverrideEditOutcome::Removed;
@@ -161,10 +164,20 @@ final class OverrideEditor
             return OverrideEditOutcome::Untouched;
         }
 
-        $this->writer->remove($key, $catalogue, $locale, $scope);
+        if (!$this->writer->remove($key, $catalogue, $locale, $scope)) {
+            return $this->removedMeanwhile($io);
+        }
+
         $io->success(\sprintf('Override removed for "%s" (%s, %s).', $key, $catalogue, $locale));
 
         return OverrideEditOutcome::Removed;
+    }
+
+    private function removedMeanwhile(SymfonyStyle $io): OverrideEditOutcome
+    {
+        $io->note('The override was removed meanwhile — nothing removed.');
+
+        return OverrideEditOutcome::Untouched;
     }
 
     private function nothing(SymfonyStyle $io): OverrideEditOutcome

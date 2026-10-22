@@ -297,14 +297,17 @@ final class OverrideWriter
      * one row: the row is read locked, so the second one waits for the first, finds
      * nothing, and neither invalidates nor announces anything. Read without the lock,
      * both found the row, and the host purged and notified twice for one removal.
+     *
+     * Returns whether this call deleted the row, that is whether it announced the removal.
+     * Inside a transaction of the host, the deletion is final only once the host commits.
      */
-    public function remove(string $key, string $catalogue, string $locale, string $scope = ''): void
+    public function remove(string $key, string $catalogue, string $locale, string $scope = ''): bool
     {
-        $this->withEffectsAfter(fn () => $this->suggestionRepository->transactional(function () use ($key, $catalogue, $locale, $scope): void {
+        return $this->withEffectsAfter(fn (): bool => $this->suggestionRepository->transactional(function () use ($key, $catalogue, $locale, $scope): bool {
             $override = $this->repository->lockOneByKey($key, $catalogue, $locale, $scope);
 
             if (null === $override) {
-                return;
+                return false;
             }
 
             $this->repository->remove($override);
@@ -312,6 +315,8 @@ final class OverrideWriter
                 $this->cacheManager->invalidate($locale);
                 $this->eventDispatcher->dispatch(new OverrideRemovedEvent($key, $catalogue, $locale, $scope));
             });
+
+            return true;
         }));
     }
 
