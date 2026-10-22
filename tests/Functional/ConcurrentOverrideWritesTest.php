@@ -45,9 +45,13 @@ final class ConcurrentOverrideWritesTest extends DatabaseTestCase
             ++$removed;
         });
 
-        $waited = $this->whileTheOtherProcessHolds(self::DELETE_RESET, fn () => $this->writer()->remove('app.reset', 'messages', 'fr'));
+        $deleted = null;
+        $waited = $this->whileTheOtherProcessHolds(self::DELETE_RESET, function () use (&$deleted): void {
+            $deleted = $this->writer()->remove('app.reset', 'messages', 'fr');
+        });
 
         self::assertGreaterThan(self::WAITED_SECONDS, $waited, 'The removal did not wait for the other process.');
+        self::assertFalse($deleted, 'The other process removed the row: this removal reports it deleted nothing.');
         self::assertSame(0, $removed, 'The other process removed the row: this removal announces nothing.');
         self::assertSame(0, $this->fetchInt('SELECT COUNT(*) FROM cyllene_translation_override'));
     }

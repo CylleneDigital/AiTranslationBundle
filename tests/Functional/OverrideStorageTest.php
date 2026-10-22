@@ -17,7 +17,7 @@ use Doctrine\ORM\EntityManagerInterface;
  * would fold them into one. On SQLite these assertions hold trivially; the CI jobs on
  * MariaDB, MySQL and PostgreSQL are where they prove something. Also: every locale code
  * the bundle accepts fits its column, the runtime lookup leaves nothing in the host's unit
- * of work, and a batch updates rows in place.
+ * of work, a batch updates rows in place, and a removal reports whether it deleted a row.
  */
 final class OverrideStorageTest extends DatabaseTestCase
 {
@@ -152,5 +152,13 @@ final class OverrideStorageTest extends DatabaseTestCase
 
         self::assertSame('Enregistrer', $this->overrides()->getOverrideValue('Save', 'messages', 'fr'));
         self::assertSame('sauvegarder', $this->overrides()->getOverrideValue('save', 'messages', 'fr'));
+    }
+
+    public function testARemovalReportsWhetherItDeletedTheRow(): void
+    {
+        $this->writer()->save('app.dashboard', 'messages', 'fr', 'Mon tableau de bord');
+
+        self::assertTrue($this->writer()->remove('app.dashboard', 'messages', 'fr'));
+        self::assertFalse($this->writer()->remove('app.dashboard', 'messages', 'fr'));
     }
 }
