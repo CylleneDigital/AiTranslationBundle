@@ -529,16 +529,6 @@ class TranslationOverrideRepository extends ServiceEntityRepository
             ->getSingleScalarResult();
     }
 
-    public function countOverridesByLocale(string $locale): int
-    {
-        return (int) $this->createQueryBuilder('t')
-            ->select('COUNT(t.id)')
-            ->andWhere('t.locale = :locale')
-            ->setParameter('locale', $locale)
-            ->getQuery()
-            ->getSingleScalarResult();
-    }
-
     /**
      * Every override of one scope, every locale and catalogue: what a scope purge removes.
      *

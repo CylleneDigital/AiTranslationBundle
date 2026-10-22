@@ -30,9 +30,7 @@ final class GenerateSuggestionsMessageHandler
                 $message->onlyMissing,
                 $message->scope,
                 $message->retryErrors,
-                // A message serialized before the property existed, still in the queue at the
-                // upgrade, has it uninitialized: handled as asked for now, as it was before.
-                (new \ReflectionProperty($message, 'dispatchedAt'))->isInitialized($message) ? $message->dispatchedAt : null,
+                $message->dispatchedAt,
             );
 
             // Reporting a skipped run as a generation of 0 suggestions would claim the

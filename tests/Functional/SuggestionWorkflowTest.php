@@ -249,7 +249,7 @@ final class SuggestionWorkflowTest extends DatabaseTestCase
         } catch (SuggestionAlreadyReviewedException) {
         }
 
-        $reviewer->rejectMany([$suggestion]);
+        self::assertSame([$suggestion], $reviewer->rejectMany([$suggestion]), 'The batch skips it, and says so.');
         self::assertSame(1, $this->fetchInt('SELECT COUNT(*) FROM cyllene_translation_suggestion'), 'The row is still there.');
     }
 

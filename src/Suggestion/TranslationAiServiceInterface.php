@@ -67,7 +67,9 @@ interface TranslationAiServiceInterface
     /**
      * @param iterable<TranslationSuggestion> $suggestions
      *
+     * @return list<TranslationSuggestion> the suggestions skipped (no longer pending: reviewed meanwhile)
+     *
      * @see SuggestionReviewer::rejectMany()
      */
-    public function rejectMany(iterable $suggestions): void;
+    public function rejectMany(iterable $suggestions): array;
 }

@@ -86,7 +86,7 @@ save is the last thing a request does. It is worth knowing about in two cases:
 - a batch: prefer `saveMany()` / `removeMany()`, which flush **once** for the whole set and
   invalidate the caches once per touched locale, over a loop of unit saves.
 
-`ScopeParametersManager` exposes `$flush = false` on its writers for the same reason: an
+`ScopeParametersManager::setPromptContext()` takes `$flush = false` for the same reason: an
 integration package writing from its own form handling keeps ownership of the flush.
 
 ### Two first writes of the same override at once

@@ -336,11 +336,6 @@ final readonly class OverrideReader
         return $this->repository->countOverrides();
     }
 
-    public function countOverridesByLocale(string $locale): int
-    {
-        return $this->repository->countOverridesByLocale($locale);
-    }
-
     /**
      * The overrides stored under each locale for exactly one scope, in one query. '' counts
      * the global overrides; a scope counts its own, not the global ones it inherits. Keys

@@ -1283,11 +1283,12 @@ final class TranslationAiServiceTest extends TestCase
             });
         $this->suggestionRepository->expects(self::once())->method('flush');
 
-        $service->rejectMany([
+        $skipped = $service->rejectMany([
             new TranslationSuggestion('app.a', 'messages', 'en_US', 'A', 'A', 'fr_FR', 'stub', 0.9),
             new TranslationSuggestion('app.b', 'messages', 'en_US', 'B', 'B', 'fr_FR', 'stub', 0.9),
         ]);
 
+        self::assertSame([], $skipped);
         self::assertSame(['app.a', 'app.b'], $removed);
         self::assertCount(2, array_filter($this->dispatchedEvents, static fn (object $e): bool => $e instanceof SuggestionRejectedEvent));
     }

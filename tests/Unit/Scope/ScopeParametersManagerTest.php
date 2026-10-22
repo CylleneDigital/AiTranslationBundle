@@ -65,16 +65,4 @@ final class ScopeParametersManagerTest extends TestCase
 
         (new ScopeParametersManager($repository))->setPromptContext('FASHION_WEB', null);
     }
-
-    public function testRemovingAScopeDropsItsRowWhenItExists(): void
-    {
-        $repository = $this->createMock(ScopeParametersRepository::class);
-        $existing = new ScopeParameters('FASHION_WEB');
-        $repository->method('find')->willReturnCallback(static fn (string $scope): ?ScopeParameters => 'FASHION_WEB' === $scope ? $existing : null);
-        $repository->expects(self::once())->method('remove')->with($existing);
-
-        $manager = new ScopeParametersManager($repository);
-        $manager->remove('FASHION_WEB');
-        $manager->remove('UNKNOWN');
-    }
 }

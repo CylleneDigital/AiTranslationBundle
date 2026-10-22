@@ -120,8 +120,9 @@ names it; an orphan catalogue is not judged.
   the caches, dispatching `OverrideSavedEvent`, and closing the pending suggestions of the
   key it sets ([suggestions.md](suggestions.md), "Statuses"). The original catalogue value is kept (`original_value`) for the diff;
   an override created by an approval records it too.
-- **Removal**: `OverrideWriter::remove()`, explicit: `OverrideWriter::save()` with the
-  original value does not remove the override. The doors do: the console editor, an
+- **Removal**: `OverrideWriter::remove()` (`TranslationManager::removeOverride()` delegates
+  to it), explicit: `OverrideWriter::save()` with the original value does not remove the
+  override. It returns whether it deleted the row: `false` when there was none. The doors do: the console editor, an
   approval and an import that set an entry back to its baseline (inherited override, else
   file value) remove its override (`OverrideChange`).
 - **Export / import**: `cyllene:ai-translation:export-overrides` produces an XLIFF (or
