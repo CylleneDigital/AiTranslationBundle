@@ -79,8 +79,8 @@ final readonly class TranslationAiService implements TranslationAiServiceInterfa
      *
      * @see SuggestionReviewer::rejectMany()
      */
-    public function rejectMany(iterable $suggestions): void
+    public function rejectMany(iterable $suggestions): array
     {
-        $this->reviewer->rejectMany($suggestions);
+        return $this->reviewer->rejectMany($suggestions);
     }
 }

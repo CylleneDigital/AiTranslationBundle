@@ -261,28 +261,34 @@ final class SuggestionReviewer
 
     /**
      * Batch rejection: the rows are deleted in one flush instead of one per item. A
-     * suggestion no longer pending in the database is left as it is.
+     * suggestion no longer pending in the database is left as it is, and returned so the
+     * caller can report it.
      *
      * @param iterable<TranslationSuggestion> $suggestions
+     *
+     * @return list<TranslationSuggestion> the suggestions skipped (already reviewed)
      */
-    public function rejectMany(iterable $suggestions): void
+    public function rejectMany(iterable $suggestions): array
     {
-        $suggestions = [...$suggestions];
+        $suggestions = array_values([...$suggestions]);
 
         if ([] === $suggestions) {
-            return;
+            return [];
         }
 
-        $this->suggestionRepository->transactional(function () use ($suggestions): void {
+        return $this->suggestionRepository->transactional(function () use ($suggestions): array {
             $reviewer = $this->getReviewer();
+            $pending = $this->suggestionRepository->lockStillPending($suggestions);
 
-            foreach ($this->suggestionRepository->lockStillPending(array_values($suggestions)) as $suggestion) {
+            foreach ($pending as $suggestion) {
                 $suggestion->reject($reviewer);
                 $this->eventDispatcher->dispatch(new SuggestionRejectedEvent($suggestion));
                 $this->suggestionRepository->removeDeferred($suggestion);
             }
 
             $this->suggestionRepository->flush();
+
+            return array_values(array_filter($suggestions, static fn (TranslationSuggestion $suggestion): bool => !\in_array($suggestion, $pending, true)));
         });
     }
 

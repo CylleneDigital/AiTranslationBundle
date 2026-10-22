@@ -292,7 +292,7 @@ pending ──approve──▶ approved   (override written, reverted or left al
   full suggestion). A rejected key becomes eligible again for a future generation (only
   `pending` blocks duplicates). Like approval, it checks the database first: a suggestion
   approved meanwhile keeps its row, the audit trail of its override
-  (`SuggestionAlreadyReviewedException`; batch rejection leaves it as it is).
+  (`SuggestionAlreadyReviewedException`; batch rejection leaves it as it is, and returns it).
 - **Superseded**: an override written for the key in any other way than approving the
   suggestion (the console's edit, an import, the host's own code through
   `TranslationManagerInterface` or `OverrideWriter`) rejects the pending suggestions of the

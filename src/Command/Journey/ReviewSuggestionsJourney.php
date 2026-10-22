@@ -320,9 +320,9 @@ final class ReviewSuggestionsJourney implements JourneyInterface
             return Command::SUCCESS;
         }
 
-        $this->reviewer->rejectMany($errored);
+        $skipped = $this->reviewer->rejectMany($errored);
 
-        $io->success(\sprintf('%d errored suggestion(s) deleted.', \count($errored)));
+        $io->success(\sprintf('%d errored suggestion(s) deleted.', \count($errored) - \count($skipped)));
 
         return Command::SUCCESS;
     }

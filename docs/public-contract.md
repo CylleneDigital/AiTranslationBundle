@@ -84,8 +84,8 @@ Two array shapes these interfaces return are part of it:
 
 - `TranslationManagerInterface::getTranslationsForCatalogue()`: one entry per key, with
   `original`, `override`, `hasOverride`, `inherited` and `inheritedFrom` (`locale`, `scope`,
-  or `null`). `OverrideReader::getTranslationsForCatalogues()` (a service, below) returns
-  those entries for each catalogue asked for, indexed by catalogue, an empty one included.
+  or `null`). `TranslationManagerInterface::getTranslationsForCatalogues()` returns those
+  entries for each catalogue asked for, indexed by catalogue, an empty one included.
 - `PlaceholderConsistencyChecker::explain()` (a service, below): `missing` and `unexpected`.
 
 ## Events and exceptions
@@ -120,7 +120,8 @@ What the services and interfaces hand over, constructors included:
 
 `GenerateSuggestionsMessage` is serialized into the transport: a message queued before a
 deployment is consumed after it, so its properties keep their name and their meaning within a
-major version.
+major version. Across a major version, drain the transport before upgrading:
+[`UPGRADE.md`](../UPGRADE.md) says when it matters.
 
 ## Services
 
@@ -140,7 +141,7 @@ thing: an interface can be decorated, these classes are `final`.
 | `Suggestion\PlaceholderConsistencyChecker` | `isConsistent()`, `explain()` |
 | `Provider\TranslationProviderRegistry` | `getNames()`, `has()` |
 | `Estimation\GenerationCostEstimator` | `estimate()` |
-| `Scope\ScopeParametersManager` | `getPromptContext()`, `setPromptContext()`, `remove()` |
+| `Scope\ScopeParametersManager` | `getPromptContext()`, `setPromptContext()` |
 | `Scope\ScopePurger` | `purge()`, `findStoredScopes()` |
 
 `createPendingQueryBuilder()` returns an open query builder for a caller to filter, sort and

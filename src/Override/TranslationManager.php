@@ -117,6 +117,26 @@ final readonly class TranslationManager implements TranslationManagerInterface
     }
 
     /**
+     * @param list<string> $catalogues
+     *
+     * @return array<string, array<string, array{original: ?string, override: ?string, hasOverride: bool, inherited: ?string, inheritedFrom: array{locale: string, scope: string}|null}>> catalogue => key => entry
+     */
+    public function getTranslationsForCatalogues(array $catalogues, string $locale, string $scope = ''): array
+    {
+        return $this->reader->getTranslationsForCatalogues($catalogues, $locale, $scope);
+    }
+
+    public function getInheritedValue(string $key, string $catalogue, string $locale, string $scope = ''): ?string
+    {
+        return $this->reader->getInheritedValue($key, $catalogue, $locale, $scope);
+    }
+
+    public function getBaselineValue(string $key, string $catalogue, string $locale, string $scope = ''): ?string
+    {
+        return $this->reader->getBaselineValue($key, $catalogue, $locale, $scope);
+    }
+
+    /**
      * @return array<string, array<string, string>> catalogue => key => effective value
      */
     public function getEffectiveOverridesByCatalogue(string $locale, string $scope = ''): array
@@ -169,11 +189,6 @@ final readonly class TranslationManager implements TranslationManagerInterface
         return $this->reader->countOverrides();
     }
 
-    public function countOverridesByLocale(string $locale): int
-    {
-        return $this->reader->countOverridesByLocale($locale);
-    }
-
     /**
      * @see OverrideReader::countOverridesPerLocale()
      *
@@ -222,9 +237,9 @@ final readonly class TranslationManager implements TranslationManagerInterface
         return $this->writer->saveMany($entries);
     }
 
-    public function removeOverride(string $key, string $catalogue, string $locale, string $scope = ''): void
+    public function removeOverride(string $key, string $catalogue, string $locale, string $scope = ''): bool
     {
-        $this->writer->remove($key, $catalogue, $locale, $scope);
+        return $this->writer->remove($key, $catalogue, $locale, $scope);
     }
 
     /**

@@ -56,7 +56,7 @@ at compile time).
 ```
 
 A screen showing several catalogues at once reads them with
-`OverrideReader::getTranslationsForCatalogues(catalogues, locale, scope)`: the same entries,
+`getTranslationsForCatalogues(catalogues, locale, scope)`: the same entries,
 indexed by catalogue, for two queries whatever the number of catalogues, where a loop costs two
 per catalogue. The files are still read catalogue by catalogue.
 

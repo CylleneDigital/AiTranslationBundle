@@ -65,6 +65,21 @@ interface TranslationManagerInterface
     public function getTranslationsForCatalogue(string $catalogue, string $locale, string $scope = ''): array;
 
     /**
+     * @see OverrideReader::getTranslationsForCatalogues()
+     *
+     * @param list<string> $catalogues
+     *
+     * @return array<string, array<string, array{original: ?string, override: ?string, hasOverride: bool, inherited: ?string, inheritedFrom: array{locale: string, scope: string}|null}>> catalogue => key => entry
+     */
+    public function getTranslationsForCatalogues(array $catalogues, string $locale, string $scope = ''): array;
+
+    /** @see OverrideReader::getInheritedValue() */
+    public function getInheritedValue(string $key, string $catalogue, string $locale, string $scope = ''): ?string;
+
+    /** @see OverrideReader::getBaselineValue() */
+    public function getBaselineValue(string $key, string $catalogue, string $locale, string $scope = ''): ?string;
+
+    /**
      * @return array<string, array<string, string>> catalogue => key => effective value
      */
     public function getEffectiveOverridesByCatalogue(string $locale, string $scope = ''): array;
@@ -92,8 +107,6 @@ interface TranslationManagerInterface
     public function countOrphanOverrides(): int;
 
     public function countOverrides(): int;
-
-    public function countOverridesByLocale(string $locale): int;
 
     /**
      * @see OverrideReader::countOverridesPerLocale()
@@ -133,7 +146,12 @@ interface TranslationManagerInterface
      */
     public function saveOverrides(array $entries): int;
 
-    public function removeOverride(string $key, string $catalogue, string $locale, string $scope = ''): void;
+    /**
+     * Whether this call deleted the override: false when there was none, a concurrent
+     * removal included. Inside a transaction of the host, the deletion is final only once
+     * the host commits.
+     */
+    public function removeOverride(string $key, string $catalogue, string $locale, string $scope = ''): bool;
 
     /**
      * Deletes every orphan in one pass — the one operation that genuinely spans reading

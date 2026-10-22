@@ -11,7 +11,7 @@ use CylleneDigital\AiTranslationBundle\Repository\ScopeParametersRepository;
  * Reads and writes the per-scope settings ({@see ScopeParameters}). A scope without a
  * row has no settings; a row emptied by a write is deleted rather than kept blank.
  *
- * `$flush = false` on the writers stages the change for a flush the caller owns — an
+ * `$flush = false` on the writer stages the change for a flush the caller owns — an
  * integration package can write from its own form handling, inside its controller's
  * flush, so an invalid form never leaves a stray row behind.
  */
@@ -43,15 +43,5 @@ final class ScopeParametersManager
         }
 
         $flush ? $this->repository->save($parameters) : $this->repository->saveDeferred($parameters);
-    }
-
-    /** Drops every setting of a scope — when the scope itself disappears (a channel deleted). */
-    public function remove(string $scope, bool $flush = true): void
-    {
-        $parameters = $this->repository->find($scope);
-
-        if (null !== $parameters) {
-            $flush ? $this->repository->remove($parameters) : $this->repository->removeDeferred($parameters);
-        }
     }
 }

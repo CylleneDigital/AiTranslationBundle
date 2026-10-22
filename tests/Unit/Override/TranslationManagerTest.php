@@ -144,8 +144,7 @@ final class TranslationManagerTest extends TestCase
         $this->repository->method('lockOneByKey')->willReturn(null);
         $this->repository->expects(self::never())->method('remove');
 
-        $manager = $this->createManager();
-        $manager->removeOverride('app.key', 'messages', 'fr_FR');
+        self::assertFalse($this->createManager()->removeOverride('app.key', 'messages', 'fr_FR'));
     }
 
     public function testIsKnownScopeWithoutADeclaredList(): void
